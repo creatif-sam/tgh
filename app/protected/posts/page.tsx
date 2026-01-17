@@ -46,26 +46,38 @@ export default function PostsPage() {
     if (!newPostContent.trim()) return;
     const supabase = createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No user found');
+        return;
+      }
 
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
-        content: newPostContent,
-        visibility: newPostVisibility,
-        author_id: user.id,
-      })
-      .select(`
-        *,
-        profiles:author_id (name, avatar_url)
-      `)
-      .single();
+      const { data, error } = await supabase
+        .from('posts')
+        .insert({
+          content: newPostContent,
+          visibility: newPostVisibility,
+          author_id: user.id,
+        })
+        .select(`
+          *,
+          profiles:author_id (name, avatar_url)
+        `)
+        .single();
 
-    if (!error && data) {
-      setPosts([data, ...posts]);
-      setNewPostContent('');
-      setShowNewPost(false);
+      if (error) {
+        console.error('Error creating post:', error);
+        return;
+      }
+
+      if (data) {
+        setPosts([data, ...posts]);
+        setNewPostContent('');
+        setShowNewPost(false);
+      }
+    } catch (error) {
+      console.error('Error in createPost:', error);
     }
   };
 

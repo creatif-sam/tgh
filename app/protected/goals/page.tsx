@@ -8,11 +8,18 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Target, Users } from 'lucide-react';
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNewGoal, setShowNewGoal] = useState(false);
+  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalDescription, setNewGoalDescription] = useState('');
+  const [newGoalVisibility, setNewGoalVisibility] = useState<'private' | 'shared'>('private');
 
   useEffect(() => {
     fetchGoals();
@@ -33,6 +40,47 @@ export default function GoalsPage() {
     setLoading(false);
   };
 
+  const createGoal = async () => {
+    if (!newGoalTitle.trim()) return;
+    const supabase = createClient();
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No user found');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('goals')
+        .insert({
+          title: newGoalTitle,
+          description: newGoalDescription,
+          goal_type: 'personal',
+          visibility: newGoalVisibility,
+          owner_id: user.id,
+          status: 'not_started',
+          progress: 0,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating goal:', error);
+        return;
+      }
+
+      if (data) {
+        setGoals([data, ...goals]);
+        setNewGoalTitle('');
+        setNewGoalDescription('');
+        setShowNewGoal(false);
+      }
+    } catch (error) {
+      console.error('Error in createGoal:', error);
+    }
+  };
+
   const myGoals = goals.filter(g => g.owner_id === goals[0]?.owner_id); // Assuming first goal's owner is current user
   const ourGoals = goals.filter(g => g.visibility === 'shared');
 
@@ -44,11 +92,49 @@ export default function GoalsPage() {
     <div className="p-4 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Goals</h1>
-        <Button size="sm">
+        <Button size="sm" onClick={() => setShowNewGoal(!showNewGoal)}>
           <Plus className="w-4 h-4 mr-2" />
           New Goal
         </Button>
       </div>
+
+      {/* New Goal Form */}
+      {showNewGoal && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <Input
+              placeholder="Goal title"
+              value={newGoalTitle}
+              onChange={(e) => setNewGoalTitle(e.target.value)}
+            />
+            <Textarea
+              placeholder="Goal description (optional)"
+              value={newGoalDescription}
+              onChange={(e) => setNewGoalDescription(e.target.value)}
+              className="min-h-[80px]"
+            />
+            <div className="flex justify-between items-center">
+              <Select value={newGoalVisibility} onValueChange={(value: 'private' | 'shared') => setNewGoalVisibility(value)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="shared">Shared</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="space-x-2">
+                <Button variant="outline" onClick={() => setShowNewGoal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={createGoal} disabled={!newGoalTitle.trim()}>
+                  Create Goal
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="my" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -72,7 +158,7 @@ export default function GoalsPage() {
               <CardContent className="p-6 text-center">
                 <Target className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No personal goals yet</p>
-                <Button className="mt-4" size="sm">
+                <Button className="mt-4" size="sm" onClick={() => setShowNewGoal(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create Your First Goal
                 </Button>
@@ -91,7 +177,7 @@ export default function GoalsPage() {
               <CardContent className="p-6 text-center">
                 <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No shared goals yet</p>
-                <Button className="mt-4" size="sm">
+                <Button className="mt-4" size="sm" onClick={() => setShowNewGoal(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create Our First Goal
                 </Button>
