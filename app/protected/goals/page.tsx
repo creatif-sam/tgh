@@ -20,6 +20,7 @@ export default function GoalsPage() {
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
   const [newGoalVisibility, setNewGoalVisibility] = useState<'private' | 'shared'>('private');
+  const [selectedType, setSelectedType] = useState<'single' | 'combined'>('single');
 
   useEffect(() => {
     fetchGoals();
@@ -51,13 +52,15 @@ export default function GoalsPage() {
         return;
       }
 
+      // If you have a selectedType state, use it. Otherwise, default to 'Personal'.
+      // Example: const [selectedType, setSelectedType] = useState<'Personal' | 'Shared'>('Personal');
       const goalData = {
         title: newGoalTitle.trim(),
         description: newGoalDescription.trim() || null,
-        goal_type: 'personal' as const,
-        visibility: newGoalVisibility,
+        goal_type: selectedType, // 'single' or 'combined'
+        visibility: newGoalVisibility, // 'private' or 'shared'
         owner_id: user.id,
-        status: 'not_started' as const,
+        status: 'not_started',
         progress: 0,
       };
 
@@ -125,17 +128,28 @@ export default function GoalsPage() {
               onChange={(e) => setNewGoalDescription(e.target.value)}
               className="min-h-[80px]"
             />
-            <div className="flex justify-between items-center">
-              <Select value={newGoalVisibility} onValueChange={(value: 'private' | 'shared') => setNewGoalVisibility(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">Private</SelectItem>
-                  <SelectItem value="shared">Shared</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="space-x-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+              <div className="flex gap-2">
+                <Select value={selectedType} onValueChange={(value: 'single' | 'combined') => setSelectedType(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Personal</SelectItem>
+                    <SelectItem value="combined">Shared</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={newGoalVisibility} onValueChange={(value: 'private' | 'shared') => setNewGoalVisibility(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">Private</SelectItem>
+                    <SelectItem value="shared">Shared</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-x-2 mt-2 sm:mt-0">
                 <Button variant="outline" onClick={() => setShowNewGoal(false)}>
                   Cancel
                 </Button>

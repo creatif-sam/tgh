@@ -14,6 +14,8 @@ export default function PlannerPage() {
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [dayData, setDayData] = useState<PlannerDay | null>(null);
   const [loading, setLoading] = useState(true);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [reflectionDraft, setReflectionDraft] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     setCurrentDate(new Date());
@@ -46,7 +48,7 @@ export default function PlannerPage() {
         )
       `)
       .eq('day', dateStr)
-      .or(`visibility.eq.shared,visibility.eq.private`)
+      .or(`visibility.eq.Shared,visibility.eq.Private`)
       .single();
 
     setDayData(data);
@@ -78,6 +80,30 @@ export default function PlannerPage() {
 
     if (!error) {
       setDayData({ ...dayData, reflection });
+    }
+  };
+
+  const addTask = () => {
+    if (!newTaskText.trim()) return;
+    const id = Date.now().toString();
+    const newTasks = { ...tasks, [id]: { text: newTaskText.trim(), completed: false } };
+    updateTasks(newTasks);
+    setNewTaskText('');
+  };
+
+  const removeTask = (taskId: string) => {
+    const newTasks = { ...tasks };
+    delete newTasks[taskId];
+    updateTasks(newTasks);
+  };
+
+  const handleReflectionChange = (val: string) => {
+    setReflectionDraft(val);
+  };
+
+  const handleSaveReflection = () => {
+    if (typeof reflectionDraft === 'string') {
+      updateReflection(reflectionDraft);
     }
   };
 
@@ -133,11 +159,27 @@ export default function PlannerPage() {
                 <span className={task.completed ? 'line-through text-muted-foreground' : ''}>
                   {task.text}
                 </span>
+                <Button size="icon" variant="ghost" onClick={() => removeTask(taskId)} title="Remove Task">
+                  ✕
+                </Button>
               </div>
             ))
           ) : (
             <p className="text-muted-foreground">No tasks for this day</p>
           )}
+          <div className="flex gap-2 mt-4">
+            <input
+              className="flex-1 border rounded px-2 py-1"
+              type="text"
+              placeholder="Add a new task"
+              value={newTaskText}
+              onChange={e => setNewTaskText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addTask(); }}
+            />
+            <Button size="sm" onClick={addTask} disabled={!newTaskText.trim()}>
+              Add Task
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -149,10 +191,13 @@ export default function PlannerPage() {
         <CardContent>
           <Textarea
             placeholder="How did your day go?"
-            value={dayData?.reflection || ''}
-            onChange={(e) => updateReflection(e.target.value)}
+            value={typeof reflectionDraft === 'string' ? reflectionDraft : (dayData?.reflection || '')}
+            onChange={(e) => handleReflectionChange(e.target.value)}
             className="min-h-[100px]"
           />
+          <Button className="mt-2" size="sm" onClick={handleSaveReflection} disabled={typeof reflectionDraft !== 'string' || reflectionDraft === (dayData?.reflection || '')}>
+            Save Reflection
+          </Button>
         </CardContent>
       </Card>
     </div>

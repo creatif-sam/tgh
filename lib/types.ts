@@ -2,7 +2,7 @@ export type Goal = {
   id: string;
   title: string;
   description?: string;
-  goal_type: 'personal' | 'shared';
+  goal_type: 'single' | 'combined';
   visibility: 'private' | 'shared';
   owner_id: string;
   partner_id?: string;
