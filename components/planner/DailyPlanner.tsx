@@ -1,208 +1,407 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import {
   Calendar,
-  Clock,
   ChevronLeft,
   ChevronRight,
   Plus,
-  Sun,
-  Moon,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 
-const HOURS = Array.from({ length: 24 }, (_, i) => ({
-  hour: i,
-  label:
-    i === 0
-      ? '12 AM'
-      : i < 12
-      ? `${i} AM`
-      : i === 12
-      ? '12 PM'
-      : `${i - 12} PM`,
-}));
+interface PlannerTask {
+  id: string;
+  text: string;
+  start: string;
+  end: string;
+  completed: boolean;
+}
+
+const HOURS = Array.from({ length: 19 }, (_, i) => i + 5); // 5 AM → 11 PM
 
 export default function DailyPlanner() {
+  const supabase = createClient();
+
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [tasks, setTasks] = useState<PlannerTask[]>([]);
+  const [morning, setMorning] = useState('');
   const [reflection, setReflection] = useState('');
-  const [now, setNow] = useState(new Date());
+
+  const [taskModalHour, setTaskModalHour] = useState<number | null>(null);
+  const [editingTask, setEditingTask] = useState<PlannerTask | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const dateKey = selectedDate.toISOString().split('T')[0];
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(t);
-  }, []);
+    void loadDay();
+  }, [dateKey]);
 
-  const isToday =
-    selectedDate.toDateString() ===
-    new Date().toDateString();
+  const loadDay = async () => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
 
-  const currentHour = now.getHours();
+    const { data } = await supabase
+      .from('planner_days')
+      .select('*')
+      .eq('day', dateKey)
+      .maybeSingle();
 
-  const moveDay = (dir: number) => {
+    if (!data) {
+      setTasks([]);
+      setMorning('');
+      setReflection('');
+      return;
+    }
+
+    setTasks((data.tasks as PlannerTask[]) ?? []);
+    setMorning(data.morning ?? '');
+    setReflection(data.reflection ?? '');
+  };
+
+  const saveDay = async (
+    updatedTasks = tasks,
+    updatedMorning = morning,
+    updatedReflection = reflection
+  ) => {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+
+    await supabase.from('planner_days').upsert({
+      day: dateKey,
+      week_id: crypto.randomUUID(),
+      visibility: 'private',
+      tasks: updatedTasks,
+      reflection: updatedReflection,
+      morning: updatedMorning,
+    });
+  };
+
+  const navigate = (dir: number) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + dir);
     setSelectedDate(d);
   };
 
-  const dayProgress =
-    ((now.getHours() * 60 + now.getMinutes()) /
-      (24 * 60)) *
-    100;
+  const tasksForHour = (h: number) =>
+    tasks.filter(
+      (t) =>
+        parseInt(t.start.split(':')[0]) <= h &&
+        parseInt(t.end.split(':')[0]) > h
+    );
 
   return (
-    <div className="p-4 space-y-6 pb-24">
-      {/* Header */}
-      <Card className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">
-              Daily Planner
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {selectedDate.toDateString()}
-            </p>
-          </div>
+    <div className="p-4 space-y-4">
+      {/* HERO */}
+      <div className="flex items-center justify-between">
+        <button onClick={() => navigate(-1)}>
+          <ChevronLeft />
+        </button>
 
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label="Open calendar"
-          >
-            <Calendar className="w-5 h-5" />
-          </Button>
+        <div className="text-center">
+          <div className="font-semibold">
+            {selectedDate.toDateString()}
+          </div>
         </div>
 
-        {/* Date Navigation */}
-        <div className="flex items-center justify-between">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => moveDay(-1)}
-          >
-            <ChevronLeft />
-          </Button>
-
-          {isToday && (
-            <span className="text-xs font-medium text-violet-600">
-              Today
-            </span>
-          )}
-
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => moveDay(1)}
-          >
+        <div className="flex gap-2">
+          <button onClick={() => setCalendarOpen(true)}>
+            <Calendar />
+          </button>
+          <button onClick={() => navigate(1)}>
             <ChevronRight />
-          </Button>
+          </button>
         </div>
+      </div>
 
-        {/* Day Progress */}
-        {isToday && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">
-                Day progress
-              </span>
-              <span className="font-medium">
-                {now.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            </div>
-            <div className="h-1 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-violet-600 transition-all"
-                style={{ width: `${dayProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Morning Intention */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Sun className="w-4 h-4 text-violet-600" />
-          <h2 className="font-medium">
-            Morning intention
-          </h2>
+      {/* MORNING */}
+      <div className="rounded-xl border p-3">
+        <div className="text-sm font-medium mb-1">
+          Morning Intention
         </div>
         <textarea
-          rows={3}
-          placeholder="What must be done today?"
-          className="w-full rounded-lg border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          value={morning}
+          onChange={(e) => {
+            setMorning(e.target.value);
+            saveDay(tasks, e.target.value, reflection);
+          }}
+          rows={2}
+          className="w-full border rounded-lg p-2 text-sm"
+          placeholder="What must be done today"
         />
-      </Card>
+      </div>
 
-      {/* Timeline */}
-      <Card className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium flex items-center gap-2">
-            <Clock className="w-4 h-4 text-violet-600" />
-            Timeline
-          </h2>
-          <Button size="sm" variant="secondary">
-            <Plus className="w-4 h-4 mr-1" />
-            Add
-          </Button>
-        </div>
+      {/* HOURS */}
+      <div className="space-y-2">
+        {HOURS.map((h) => (
+          <div
+            key={h}
+            className="border rounded-lg p-2 space-y-2"
+          >
+            <div className="flex justify-between items-center text-sm">
+              <span>
+                {h === 12
+                  ? '12 PM'
+                  : h > 12
+                  ? `${h - 12} PM`
+                  : `${h} AM`}
+              </span>
+              <button onClick={() => setTaskModalHour(h)}>
+                <Plus size={16} />
+              </button>
+            </div>
 
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-          {HOURS.map(({ hour, label }) => {
-            const active =
-              isToday && hour === currentHour;
-
-            return (
+            {tasksForHour(h).map((t) => (
               <div
-                key={hour}
-                className={`flex gap-4 p-2 rounded-lg ${
-                  active
-                    ? 'bg-violet-50 ring-1 ring-violet-200'
-                    : 'hover:bg-muted'
+                key={t.id}
+                onClick={() => setEditingTask(t)}
+                className={`rounded-lg px-3 py-2 text-sm cursor-pointer ${
+                  t.completed
+                    ? 'bg-muted line-through'
+                    : 'bg-violet-600 text-white'
                 }`}
               >
-                <div
-                  className={`w-16 text-right text-sm ${
-                    active
-                      ? 'font-semibold text-violet-600'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  {label}
-                </div>
-
-                <div className="flex-1 border-b border-dashed border-muted pb-2">
-                  <span className="text-xs text-muted-foreground">
-                    Add task
-                  </span>
+                {t.text}
+                <div className="text-xs opacity-80">
+                  {t.start} – {t.end}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </Card>
+            ))}
+          </div>
+        ))}
+      </div>
 
-      {/* Evening Reflection */}
-      <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Moon className="w-4 h-4 text-violet-600" />
-          <h2 className="font-medium">
-            Evening reflection
-          </h2>
+      {/* EVENING */}
+      <div className="rounded-xl border p-3">
+        <div className="text-sm font-medium mb-1">
+          Evening Reflection
         </div>
         <textarea
-          rows={4}
           value={reflection}
-          onChange={(e) => setReflection(e.target.value)}
-          placeholder="What did you learn today?"
-          className="w-full rounded-lg border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          onChange={(e) => {
+            setReflection(e.target.value);
+            saveDay(tasks, morning, e.target.value);
+          }}
+          rows={3}
+          className="w-full border rounded-lg p-2 text-sm"
+          placeholder="What went well today"
         />
-      </Card>
+      </div>
+
+      {/* ADD TASK */}
+      {taskModalHour !== null && (
+        <TaskModal
+          hour={taskModalHour}
+          onClose={() => setTaskModalHour(null)}
+          onSave={(t) => {
+            const updated = [...tasks, t];
+            setTasks(updated);
+            saveDay(updated);
+            setTaskModalHour(null);
+          }}
+        />
+      )}
+
+      {/* EDIT TASK */}
+      {editingTask && (
+        <EditTaskModal
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onDelete={() => {
+            const updated = tasks.filter(
+              (t) => t.id !== editingTask.id
+            );
+            setTasks(updated);
+            saveDay(updated);
+            setEditingTask(null);
+          }}
+          onSave={(t) => {
+            const updated = tasks.map((x) =>
+              x.id === t.id ? t : x
+            );
+            setTasks(updated);
+            saveDay(updated);
+            setEditingTask(null);
+          }}
+        />
+      )}
+
+      {/* CALENDAR */}
+      <MonthCalendarModal
+        open={calendarOpen}
+        selectedDate={selectedDate}
+        onClose={() => setCalendarOpen(false)}
+        onSelect={(d) => {
+          setSelectedDate(d);
+          setCalendarOpen(false);
+        }}
+      />
     </div>
+  );
+}
+
+/* ---------- MODALS ---------- */
+
+function TaskModal({
+  hour,
+  onClose,
+  onSave,
+}: {
+  hour: number;
+  onClose: () => void;
+  onSave: (t: PlannerTask) => void;
+}) {
+  const [text, setText] = useState('');
+  const [end, setEnd] = useState(hour + 1);
+
+  return (
+    <Modal onClose={onClose}>
+      <h3 className="font-semibold mb-2">New Task</h3>
+
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Task"
+        className="w-full border rounded-lg p-2 text-sm mb-2"
+      />
+
+      <select
+        value={end}
+        onChange={(e) => setEnd(Number(e.target.value))}
+        className="w-full border rounded-lg p-2 text-sm"
+      >
+        {Array.from({ length: 6 }, (_, i) => hour + i + 1).map(
+          (h) => (
+            <option key={h} value={h}>
+              Ends at {h}:00
+            </option>
+          )
+        )}
+      </select>
+
+      <button
+        onClick={() =>
+          onSave({
+            id: crypto.randomUUID(),
+            text,
+            start: `${hour}:00`,
+            end: `${end}:00`,
+            completed: false,
+          })
+        }
+        className="mt-3 w-full bg-violet-600 text-white rounded-lg py-2"
+      >
+        Save
+      </button>
+    </Modal>
+  );
+}
+
+function EditTaskModal({
+  task,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  task: PlannerTask;
+  onClose: () => void;
+  onSave: (t: PlannerTask) => void;
+  onDelete: () => void;
+}) {
+  const [text, setText] = useState(task.text);
+  const [completed, setCompleted] = useState(task.completed);
+
+  return (
+    <Modal onClose={onClose}>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="w-full border rounded-lg p-2 text-sm mb-2"
+      />
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={completed}
+          onChange={(e) => setCompleted(e.target.checked)}
+        />
+        Completed
+      </label>
+
+      <div className="flex justify-between mt-3">
+        <button onClick={onDelete} className="text-red-600">
+          Delete
+        </button>
+        <button
+          onClick={() =>
+            onSave({ ...task, text, completed })
+          }
+          className="bg-violet-600 text-white px-4 py-1 rounded-lg"
+        >
+          Save
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function Modal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+      <div className="bg-background rounded-xl p-4 w-[90%] max-w-sm">
+        {children}
+        <button
+          onClick={onClose}
+          className="mt-2 text-sm text-muted-foreground"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- CALENDAR ---------- */
+
+function MonthCalendarModal({
+  open,
+  selectedDate,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  selectedDate: Date;
+  onClose: () => void;
+  onSelect: (d: Date) => void;
+}) {
+  if (!open) return null;
+
+  const year = selectedDate.getFullYear();
+  const month = selectedDate.getMonth();
+  const days = new Date(year, month + 1, 0).getDate();
+
+  return (
+    <Modal onClose={onClose}>
+      <div className="grid grid-cols-7 gap-2">
+        {Array.from({ length: days }, (_, i) => {
+          const d = new Date(year, month, i + 1);
+          return (
+            <button
+              key={i}
+              onClick={() => onSelect(d)}
+              className="rounded-lg border p-2 text-sm"
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+    </Modal>
   );
 }
