@@ -12,7 +12,8 @@ interface Quiz {
   description?: string;
 }
 
-export default function QuizList(): JSX.Element {
+export default function QuizList() 
+{
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [active, setActive] = useState<Quiz | null>(null);
 
