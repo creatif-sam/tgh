@@ -32,7 +32,7 @@ export default function DailyPlanner() {
     setSelectedDate(newDate);
   };
 
-  const formatDate = (date) => {
+  const formatDate = (date: Date) => {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
   };
