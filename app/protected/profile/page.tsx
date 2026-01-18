@@ -17,6 +17,8 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [goalStats, setGoalStats] = useState({ total: 0, completed: 0 });
+  const [postCount, setPostCount] = useState(0);
 
   useEffect(() => {
     fetchProfile();
@@ -98,6 +100,53 @@ export default function ProfilePage() {
     window.location.href = '/auth/login';
   };
 
+  const fetchStats = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('No authenticated user found.');
+      return;
+    }
+
+    console.log('Authenticated user:', user);
+
+    // Fetch goals
+    const { data: goals, error: goalsError } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('owner_id', user.id);
+
+    if (goalsError) {
+      console.error('Error fetching goals:', goalsError);
+      console.log('Supabase query response:', goals);
+    } else {
+      console.log('Fetched goals:', goals);
+    }
+
+    const totalGoals = goals?.length || 0;
+    const completedGoals = goals?.filter((goal) => goal.status === 'done').length || 0;
+    setGoalStats({ total: totalGoals, completed: completedGoals });
+
+    // Fetch posts
+    const { data: posts, error: postsError } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('author_id', user.id);
+
+    if (postsError) {
+      console.error('Error fetching posts:', postsError);
+      console.log('Supabase query response:', posts);
+    } else {
+      console.log('Fetched posts:', posts);
+    }
+
+    setPostCount(posts?.length || 0);
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
   if (loading) {
     return <div className="p-4">Loading...</div>;
   }
@@ -172,6 +221,27 @@ export default function ProfilePage() {
           <div className="space-y-2">
             <Label>Email</Label>
             <p className="text-muted-foreground">{profile?.id}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Statistics</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-center">
+            <span>Total Goals</span>
+            <span>{goalStats.total}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span>Completed Goals</span>
+            <span>{((goalStats.completed / goalStats.total) * 100).toFixed(2)}%</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span>Total Posts</span>
+            <span>{postCount}</span>
           </div>
         </CardContent>
       </Card>

@@ -31,13 +31,30 @@ export default function GoalsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
+    // Fetch goals from the 'goals' table
+    const { data: goalsData, error: goalsError } = await supabase
       .from('goals')
       .select('*')
       .or(`owner_id.eq.${user.id},partner_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
-    setGoals(data || []);
+    if (goalsError) {
+      console.error('Error fetching goals:', goalsError);
+    }
+
+    // Fetch goals from the 'planner_goals' table
+    const { data: plannerGoalsData, error: plannerGoalsError } = await supabase
+      .from('planner_goals')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (plannerGoalsError) {
+      console.error('Error fetching planner goals:', plannerGoalsError);
+    }
+
+    // Combine results
+    const combinedGoals = [...(goalsData || []), ...(plannerGoalsData || [])];
+    setGoals(combinedGoals);
     setLoading(false);
   };
 

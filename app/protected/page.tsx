@@ -10,6 +10,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Bell, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import DailyActionWord from '@/components/daily-action-word';
+import Link from 'next/link';
 
 export default function HomePage() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -89,7 +91,15 @@ export default function HomePage() {
   }
 
   return (
-    <div className="p-4 space-y-6">
+    <div>
+      <nav className="bg-gray-800 text-white p-4 flex justify-between">
+        <div className="flex space-x-4">
+          <Link href="/protected/readapp">
+            <Button variant="ghost" className="text-white">ReadApp</Button>
+          </Link>
+        </div>
+      </nav>
+      <DailyActionWord />
       {/* Topbar moved to layout */}
       <div className="text-center py-2">
         <p className="text-muted-foreground">Goals & Habits</p>
