@@ -1,14 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Goal, Post, Profile } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Bell, HelpCircle } from 'lucide-react';
+import {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+} from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import {
+  Target,
+  Calendar,
+  MessageCircle,
+  Sparkles,
+  ArrowRight,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import DailyActionWord from '@/components/daily-action-word';
 import Link from 'next/link';
@@ -17,28 +32,26 @@ export default function HomePage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [posts, setPosts] = useState<(Post & { profiles: Profile })[]>([]);
   const [todayPlanner, setTodayPlanner] = useState<{
-    id: string;
-    week_id: string;
-    day: string;
-    tasks?: Record<string, { text: string; completed: boolean }>;
     reflection?: string;
-    visibility: 'private' | 'shared';
+    tasks?: Record<string, unknown>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState<string | null>(null); // State for user's full name
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboardData();
+    void fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) return;
 
-    setUserName(user.user_metadata.full_name); // Set user's full name
+    setUserName(user.user_metadata?.full_name ?? null);
 
-    // Get shared goals
     const { data: goalsData } = await supabase
       .from('goals')
       .select('*')
@@ -47,142 +60,197 @@ export default function HomePage() {
       .order('created_at', { ascending: false })
       .limit(5);
 
-    // Get recent posts
     const { data: postsData } = await supabase
       .from('posts')
-      .select(`
+      .select(
+        `
         *,
         profiles:author_id (name, avatar_url)
-      `)
+      `
+      )
       .or(`author_id.eq.${user.id},partner_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(3);
 
-    // Get today's planner
     const today = new Date().toISOString().split('T')[0];
     const { data: plannerData } = await supabase
       .from('planner_days')
-      .select(`
-        *,
-        planner_weeks (
-          planner_months (
-            planner_quarters (
-              planner_years (*)
-            )
-          )
-        )
-      `)
+      .select('*')
       .eq('day', today)
-      .or(`visibility.eq.shared,visibility.eq.private`)
       .single();
 
-    setGoals(goalsData || []);
-    setPosts(postsData || []);
+    setGoals(goalsData ?? []);
+    setPosts(postsData ?? []);
     setTodayPlanner(plannerData);
     setLoading(false);
   };
 
   if (loading) {
     return (
-      <div className="p-4 space-y-6">
-        <div className="text-center py-4">
-          <h1 className="text-2xl font-bold text-primary">Together</h1>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="p-6 animate-pulse space-y-6">
+        <div className="h-6 bg-muted rounded w-1/2" />
+        <div className="h-32 bg-muted rounded-xl" />
+        <div className="h-40 bg-muted rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div>
-      {userName && (
-        <h1 className="text-2xl font-bold">
-          Hello {userName}, I love you ❤️
+    <div className="p-4 space-y-6 pb-24">
+      {/* Greeting */}
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Hello{userName ? ` ${userName}` : ''} ✨
         </h1>
-      )}
-      <nav className="bg-gray-800 text-white p-4 flex justify-between">
-        <div className="flex space-x-4">
-          {/* Removed ReadApp button */}
-        </div>
-      </nav>
-      <DailyActionWord />
-      {/* Topbar moved to layout */}
-      <div className="text-center py-2">
-        <p className="text-muted-foreground">Goals & Habits</p>
+        <p className="text-sm text-muted-foreground">
+          Let us move with purpose today
+        </p>
       </div>
 
-      {/* Shared Goals Progress */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Shared Goals</CardTitle>
+      {/* Daily Word */}
+      <DailyActionWord />
+
+      {/* Shared Goals */}
+      <Card className="transition hover:shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Target className="w-4 h-4 text-violet-600" />
+            Shared Goals
+          </CardTitle>
+          <Link
+            href="/protected/goals"
+            className="text-xs text-violet-600 flex items-center gap-1"
+          >
+            View all
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          {goals?.length ? (
+          {goals.length ? (
             goals.map((goal) => (
-              <div key={goal.id} className="space-y-2">
+              <div
+                key={goal.id}
+                className="space-y-2"
+              >
                 <div className="flex justify-between items-center">
-                  <h3 className="font-medium">{goal.title}</h3>
-                  <Badge variant={goal.status === 'done' ? 'default' : 'secondary'}>
+                  <p className="font-medium text-sm">
+                    {goal.title}
+                  </p>
+                  <Badge
+                    variant={
+                      goal.status === 'done'
+                        ? 'default'
+                        : 'secondary'
+                    }
+                  >
                     {goal.status.replace('_', ' ')}
                   </Badge>
                 </div>
-                <Progress value={goal.progress} className="h-2" />
-                <p className="text-sm text-muted-foreground">{goal.progress}% complete</p>
+
+                <Progress
+                  value={goal.progress}
+                  className="h-2"
+                />
+
+                <p className="text-xs text-muted-foreground">
+                  {goal.progress}% complete
+                </p>
               </div>
             ))
           ) : (
-            <p className="text-muted-foreground">No shared goals yet</p>
+            <p className="text-sm text-muted-foreground">
+              No shared goals yet
+            </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Today's Focus */}
-      <Card>
+      {/* Today Focus */}
+      <Card className="transition hover:shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Today</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-violet-600" />
+            Today
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+
+        <CardContent className="space-y-2">
           {todayPlanner ? (
-            <div className="space-y-2">
-              <p className="text-sm">{todayPlanner.reflection || 'No reflection yet'}</p>
+            <>
+              <p className="text-sm">
+                {todayPlanner.reflection ??
+                  'No reflection yet'}
+              </p>
               {todayPlanner.tasks && (
-                <div className="text-sm text-muted-foreground">
-                  {Object.keys(todayPlanner.tasks).length} tasks planned
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  {Object.keys(todayPlanner.tasks)
+                    .length}{' '}
+                  planned actions
+                </p>
               )}
-            </div>
+            </>
           ) : (
-            <p className="text-muted-foreground">No plans for today</p>
+            <p className="text-sm text-muted-foreground">
+              No plans for today
+            </p>
           )}
         </CardContent>
       </Card>
 
       {/* Recent Posts */}
-      <Card>
+      <Card className="transition hover:shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Recent Posts</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-violet-600" />
+            Recent Posts
+          </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          {posts?.length ? (
+          {posts.length ? (
             posts.map((post) => (
-              <div key={post.id} className="space-y-2">
+              <div
+                key={post.id}
+                className="space-y-2"
+              >
                 <div className="flex items-center gap-2">
                   <Avatar className="w-8 h-8">
-                    <AvatarImage src={(post.profiles as Profile)?.avatar_url || undefined} alt={(post.profiles as Profile)?.name || 'User'} />
-                    <AvatarFallback>{(post.profiles as Profile)?.name?.[0] || 'U'}</AvatarFallback>
+                    <AvatarImage
+                      src={
+                        (post.profiles as Profile)
+                          ?.avatar_url ?? undefined
+                      }
+                    />
+                    <AvatarFallback>
+                      {(post.profiles as Profile)
+                        ?.name?.[0] ?? 'U'}
+                    </AvatarFallback>
                   </Avatar>
+
                   <div>
-                    <p className="font-medium text-sm">{(post.profiles as Profile)?.name || 'User'}</p>
+                    <p className="text-sm font-medium">
+                      {(post.profiles as Profile)
+                        ?.name ?? 'User'}
+                    </p>
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(post.created_at), 'MMM d')}
+                      {format(
+                        new Date(post.created_at),
+                        'MMM d'
+                      )}
                     </p>
                   </div>
                 </div>
-                <p className="text-sm">{post.content}</p>
+
+                <p className="text-sm">
+                  {post.content}
+                </p>
               </div>
             ))
           ) : (
-            <p className="text-muted-foreground">No posts yet</p>
+            <p className="text-sm text-muted-foreground">
+              No posts yet
+            </p>
           )}
         </CardContent>
       </Card>

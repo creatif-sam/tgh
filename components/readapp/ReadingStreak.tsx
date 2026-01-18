@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { calculateReadingStreak } from '@/lib/readapp/streak';
 
-export default function ReadingStreak(): JSX.Element {
+export default function ReadingStreak() {
   const [streak, setStreak] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
