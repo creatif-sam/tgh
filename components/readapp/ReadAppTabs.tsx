@@ -3,6 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import ReadingList from './ReadingList';
 import QuizList from './QuizList';
+import { JSX } from 'react';
 
 export default function ReadAppTabs(): JSX.Element {
   return (
