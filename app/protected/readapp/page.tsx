@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { Tabs, Tab } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
