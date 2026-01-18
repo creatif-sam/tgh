@@ -71,3 +71,12 @@ export type PlannerDay = {
   reflection?: string;
   visibility: 'private' | 'shared';
 };
+
+
+export interface PlannerTask {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  notes?: string;
+}
