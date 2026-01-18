@@ -5,6 +5,7 @@ import TaskItem from './TaskItem';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { v4 as uuid } from 'uuid';
+import React from 'react';
 
 interface Props {
   hour: string;
@@ -18,7 +19,7 @@ export default function HourBlock({
   tasks,
   allTasks,
   setTasks,
-}: Props): JSX.Element {
+}: Props): React.JSX.Element {
   const addTask = async (): Promise<void> => {
     const newTask: PlannerTask = {
       id: uuid(),

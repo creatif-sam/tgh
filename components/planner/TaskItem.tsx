@@ -1,4 +1,4 @@
-'use client';
+import React from 'react';
 
 import { PlannerTask } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ export default function TaskItem({
   task,
   allTasks,
   setTasks,
-}: Props): JSX.Element {
+}: Props): React.JSX.Element {
   const updateTitle = async (title: string): Promise<void> => {
     await setTasks(
       allTasks.map((t) =>

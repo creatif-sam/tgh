@@ -1,6 +1,6 @@
-'use client';
+import React from 'react';
 
-export default function MorningPrompt(): JSX.Element {
+export default function MorningPrompt(): React.JSX.Element {
   return (
     <div className="bg-gradient-to-r from-violet-600 to-black text-white p-4 rounded-xl">
       <p className="text-sm uppercase tracking-wide">

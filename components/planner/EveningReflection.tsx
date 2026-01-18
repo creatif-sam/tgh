@@ -1,4 +1,4 @@
-'use client';
+import React from 'react';
 
 import { Textarea } from '@/components/ui/textarea';
 
@@ -10,7 +10,7 @@ interface Props {
 export default function EveningReflection({
   value,
   onChange,
-}: Props): JSX.Element {
+}: Props): React.JSX.Element {
   return (
     <div className="mt-6">
       <p className="text-sm font-medium mb-2">
