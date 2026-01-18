@@ -106,7 +106,7 @@ export default function HomePage() {
               <div key={goal.id} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <h3 className="font-medium">{goal.title}</h3>
-                  <Badge variant={goal.status === 'completed' ? 'default' : 'secondary'}>
+                  <Badge variant={goal.status === 'done' ? 'default' : 'secondary'}>
                     {goal.status.replace('_', ' ')}
                   </Badge>
                 </div>
