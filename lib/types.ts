@@ -6,10 +6,11 @@ export type Goal = {
   visibility: 'private' | 'shared';
   owner_id: string;
   partner_id?: string;
-  status: 'not_started' | 'in_progress' | 'completed' | 'paused';
+  status: 'to_do' | 'doing' | 'blocked' | 'done';
   progress: number;
   due_date?: string;
   created_at: string;
+  completed_at?: string;
 };
 
 export type Post = {

@@ -6,6 +6,9 @@ import { Goal, Post, Profile } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Bell, HelpCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
 export default function HomePage() {
@@ -87,8 +90,8 @@ export default function HomePage() {
 
   return (
     <div className="p-4 space-y-6">
-      <div className="text-center py-4">
-        <h1 className="text-2xl font-bold text-primary">Together</h1>
+      {/* Topbar moved to layout */}
+      <div className="text-center py-2">
         <p className="text-muted-foreground">Goals & Habits</p>
       </div>
 
@@ -148,9 +151,10 @@ export default function HomePage() {
             posts.map((post) => (
               <div key={post.id} className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                    {(post.profiles as Profile)?.name?.[0] || 'U'}
-                  </div>
+                  <Avatar className="w-8 h-8">
+                    <AvatarImage src={(post.profiles as Profile)?.avatar_url || undefined} alt={(post.profiles as Profile)?.name || 'User'} />
+                    <AvatarFallback>{(post.profiles as Profile)?.name?.[0] || 'U'}</AvatarFallback>
+                  </Avatar>
                   <div>
                     <p className="font-medium text-sm">{(post.profiles as Profile)?.name || 'User'}</p>
                     <p className="text-xs text-muted-foreground">

@@ -52,52 +52,30 @@ export default function GoalsPage() {
         return;
       }
 
-      // If you have a selectedType state, use it. Otherwise, default to 'Personal'.
-      // Example: const [selectedType, setSelectedType] = useState<'Personal' | 'Shared'>('Personal');
       const goalData = {
         title: newGoalTitle.trim(),
-        description: newGoalDescription.trim() || null,
-        goal_type: selectedType, // 'single' or 'combined'
-        visibility: newGoalVisibility, // 'private' or 'shared'
+        description: newGoalDescription.trim(),
+        visibility: newGoalVisibility,
+        goal_type: selectedType,
         owner_id: user.id,
-        status: 'not_started',
-        progress: 0,
       };
 
-      console.log('Inserting goal data:', goalData);
-
-      const { data, error } = await supabase
-        .from('goals')
-        .insert(goalData)
-        .select()
-        .single();
-
+      const { data, error } = await supabase.from('goals').insert(goalData).select();
       if (error) {
-        console.error('Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
+        console.error('Error creating goal:', error);
         return;
       }
 
       if (data) {
-        console.log('Goal created successfully:', data);
-        setGoals([data, ...goals]);
-        setNewGoalTitle('');
-        setNewGoalDescription('');
-        setShowNewGoal(false);
-      } else {
-        console.error('No data returned from insert');
+        setGoals([data[0], ...goals]);
       }
+      setShowNewGoal(false);
+      setNewGoalTitle('');
+      setNewGoalDescription('');
     } catch (error) {
-      console.error('Exception in createGoal:', error);
+      console.error('Error creating goal:', error);
     }
   };
-
-  const myGoals = goals.filter(g => g.owner_id === goals[0]?.owner_id); // Assuming first goal's owner is current user
-  const ourGoals = goals.filter(g => g.visibility === 'shared');
 
   if (loading) {
     return <div className="p-4">Loading...</div>;
@@ -113,7 +91,6 @@ export default function GoalsPage() {
         </Button>
       </div>
 
-      {/* New Goal Form */}
       {showNewGoal && (
         <Card>
           <CardContent className="p-4 space-y-4">
@@ -130,7 +107,7 @@ export default function GoalsPage() {
             />
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
               <div className="flex gap-2">
-                <Select value={selectedType} onValueChange={(value: 'single' | 'combined') => setSelectedType(value)}>
+                <Select value={selectedType} onValueChange={(value) => setSelectedType(value as 'single' | 'combined')}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
@@ -139,7 +116,7 @@ export default function GoalsPage() {
                     <SelectItem value="combined">Shared</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={newGoalVisibility} onValueChange={(value: 'private' | 'shared') => setNewGoalVisibility(value)}>
+                <Select value={newGoalVisibility} onValueChange={(value) => setNewGoalVisibility(value as 'private' | 'shared')}>
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
@@ -175,8 +152,8 @@ export default function GoalsPage() {
         </TabsList>
 
         <TabsContent value="my" className="space-y-4">
-          {myGoals.length ? (
-            myGoals.map((goal) => (
+          {goals.filter((goal) => goal.goal_type === 'single').length ? (
+            goals.filter((goal) => goal.goal_type === 'single').map((goal) => (
               <GoalCard key={goal.id} goal={goal} />
             ))
           ) : (
@@ -194,8 +171,8 @@ export default function GoalsPage() {
         </TabsContent>
 
         <TabsContent value="our" className="space-y-4">
-          {ourGoals.length ? (
-            ourGoals.map((goal) => (
+          {goals.filter((goal) => goal.goal_type === 'combined').length ? (
+            goals.filter((goal) => goal.goal_type === 'combined').map((goal) => (
               <GoalCard key={goal.id} goal={goal} />
             ))
           ) : (
@@ -217,6 +194,35 @@ export default function GoalsPage() {
 }
 
 function GoalCard({ goal }: { goal: Goal }) {
+  const [status, setStatus] = useState<Goal['status']>(goal.status);
+  const [progress, setProgress] = useState(goal.progress);
+  const [completedAt, setCompletedAt] = useState<string | undefined>(goal.completed_at);
+
+  const statusProgress: Record<Goal['status'], number> = {
+    to_do: 0,
+    doing: 49,
+    blocked: 75,
+    done: 100,
+  };
+
+  const updateStatus = async (newStatus: Goal['status']) => {
+    const supabase = createClient();
+    let completed_at: string | undefined = completedAt;
+    if (newStatus === 'done') {
+      completed_at = new Date().toISOString();
+      setCompletedAt(completed_at);
+    } else {
+      completed_at = undefined;
+      setCompletedAt(undefined);
+    }
+    setStatus(newStatus);
+    setProgress(statusProgress[newStatus]);
+    await supabase
+      .from('goals')
+      .update({ status: newStatus, progress: statusProgress[newStatus], completed_at })
+      .eq('id', goal.id);
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -233,19 +239,26 @@ function GoalCard({ goal }: { goal: Goal }) {
       <CardContent className="space-y-3">
         <div className="flex justify-between text-sm">
           <span>Progress</span>
-          <span>{goal.progress}%</span>
+          <span>{progress}%</span>
         </div>
-        <Progress value={goal.progress} className="h-2" />
-        <div className="flex justify-between items-center">
-          <Badge variant={
-            goal.status === 'completed' ? 'default' :
-            goal.status === 'in_progress' ? 'secondary' :
-            'outline'
-          }>
-            {goal.status.replace('_', ' ')}
-          </Badge>
+        <Progress value={progress} className="h-2" />
+        <div className="flex justify-between items-center gap-2">
+          <Select value={status} onValueChange={(val) => updateStatus(val as Goal['status'])}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="to_do">To-Do (0%)</SelectItem>
+              <SelectItem value="doing">Doing (49%)</SelectItem>
+              <SelectItem value="blocked">Blocked (75%)</SelectItem>
+              <SelectItem value="done">Done (100%)</SelectItem>
+            </SelectContent>
+          </Select>
+          {status === 'done' && completedAt && (
+            <span className="text-xs text-green-600 font-semibold ml-2">Completed on {new Date(completedAt).toLocaleDateString()}</span>
+          )}
           {goal.due_date && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground ml-2">
               Due {new Date(goal.due_date).toLocaleDateString()}
             </span>
           )}
