@@ -46,6 +46,7 @@ export default function DailyPlanner() {
       .from('planner_days')
       .select('tasks, morning, reflection')
       .eq('day', dateKey)
+      .eq('user_id', auth.user.id)
       .maybeSingle()
 
     setTasks(Array.isArray(data?.tasks) ? data.tasks : [])
@@ -64,12 +65,15 @@ export default function DailyPlanner() {
     await supabase.from('planner_days').upsert(
       {
         day: dateKey,
+        user_id: auth.user.id,
         tasks: updatedTasks,
         morning: updatedMorning,
         reflection: updatedReflection,
         visibility: 'private',
       },
-      { onConflict: 'day' }
+      {
+        onConflict: 'day,user_id',
+      }
     )
   }
 
@@ -158,7 +162,7 @@ export default function DailyPlanner() {
         </button>
       </div>
 
-      {/* PRIMARY ACTION */}
+      {/* EXPORT */}
       <button
         onClick={exportFreeTime}
         className="w-full rounded-xl bg-black text-white py-2 text-sm font-medium"
@@ -168,9 +172,7 @@ export default function DailyPlanner() {
 
       {/* MORNING */}
       <div className="rounded-xl border p-3">
-        <div className="text-sm font-medium mb-1">
-          Morning Intention
-        </div>
+        <div className="text-sm font-medium mb-1">Morning Intention</div>
         <textarea
           value={morning}
           onChange={(e) => {
@@ -219,9 +221,7 @@ export default function DailyPlanner() {
 
       {/* EVENING */}
       <div className="rounded-xl border p-3">
-        <div className="text-sm font-medium mb-1">
-          Evening Reflection
-        </div>
+        <div className="text-sm font-medium mb-1">Evening Reflection</div>
         <textarea
           value={reflection}
           onChange={(e) => {

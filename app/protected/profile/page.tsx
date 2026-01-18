@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LogOut, Camera, Save } from 'lucide-react';
+import DisciplineVideosForm from '@/components/profile/DisciplineVideosForm';
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -221,6 +222,8 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      <DisciplineVideosForm />
+
     </div>
   );
 }

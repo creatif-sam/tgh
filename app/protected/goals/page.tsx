@@ -15,6 +15,7 @@ import {
   Calendar,
   Target,
   Download,
+  Users,
 } from 'lucide-react'
 import { NewGoalForm } from '@/components/goals/NewGoalForm'
 import { GoalList } from '@/components/goals/GoalList'
@@ -28,6 +29,8 @@ export default function GoalsPage() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [view, setView] = useState<GoalView>('weekly')
+  const [showSharedOnly, setShowSharedOnly] =
+    useState(false)
 
   useEffect(() => {
     loadGoals()
@@ -84,7 +87,11 @@ export default function GoalsPage() {
 
   const now = new Date()
 
-  const weekly = goals.filter((g) => {
+  const baseGoals = showSharedOnly
+    ? goals.filter((g) => g.goal_type === 'combined')
+    : goals
+
+  const weekly = baseGoals.filter((g) => {
     if (!g.due_date) return false
     const d = new Date(g.due_date)
     const start = new Date(now)
@@ -94,7 +101,7 @@ export default function GoalsPage() {
     return d >= start && d < end
   })
 
-  const quarterly = goals.filter(
+  const quarterly = baseGoals.filter(
     (g) =>
       g.due_date &&
       Math.floor(new Date(g.due_date).getMonth() / 3) ===
@@ -103,7 +110,7 @@ export default function GoalsPage() {
         now.getFullYear()
   )
 
-  const yearly = goals.filter(
+  const yearly = baseGoals.filter(
     (g) =>
       g.due_date &&
       new Date(g.due_date).getFullYear() ===
@@ -138,13 +145,27 @@ export default function GoalsPage() {
               <h2 className="text-sm font-semibold">
                 Daily Planning
               </h2>
-              <Button
-                size="sm"
-                onClick={() => setShowNew(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Goal
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant={
+                    showSharedOnly ? 'default' : 'outline'
+                  }
+                  size="sm"
+                  onClick={() =>
+                    setShowSharedOnly(!showSharedOnly)
+                  }
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Shared Goals
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setShowNew(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Goal
+                </Button>
+              </div>
             </div>
 
             {showNew && (
@@ -155,9 +176,8 @@ export default function GoalsPage() {
             )}
 
             <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-              Plan your day here. Goals created here will
-              automatically appear in weekly quarterly and
-              yearly views.
+              Create goals while planning your day. Shared
+              goals help align with your partner.
             </div>
           </div>
         </TabsContent>
@@ -189,6 +209,18 @@ export default function GoalsPage() {
                 {view} goals
               </div>
               <div className="flex gap-2">
+                <Button
+                  variant={
+                    showSharedOnly ? 'default' : 'outline'
+                  }
+                  size="sm"
+                  onClick={() =>
+                    setShowSharedOnly(!showSharedOnly)
+                  }
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Shared
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
