@@ -1,8 +1,8 @@
-'use client';
+import React from 'react';
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/client';
+import { useEffect, useState } from 'react';
 
 interface Props {
   selectedDate: string;
@@ -12,7 +12,7 @@ interface Props {
 export default function CalendarOverview({
   selectedDate,
   onSelect,
-}: Props): JSX.Element {
+}: Props): React.JSX.Element {
   const [currentMonth, setCurrentMonth] = useState<Date>(
     new Date(selectedDate)
   );
