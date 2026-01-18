@@ -26,7 +26,7 @@ export default function DailyPlanner() {
   const currentHour = currentTime.getHours();
   const isToday = selectedDate.toDateString() === new Date().toDateString();
 
-  const navigateDate = (direction) => {
+  const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + direction);
     setSelectedDate(newDate);
