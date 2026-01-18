@@ -12,6 +12,7 @@ interface Props {
   tasks: PlannerTask[];
   allTasks: PlannerTask[];
   setTasks: (tasks: PlannerTask[]) => Promise<void>;
+  children?: React.ReactNode; // Added children prop
 }
 
 export default function HourBlock({
@@ -19,6 +20,7 @@ export default function HourBlock({
   tasks,
   allTasks,
   setTasks,
+  children, // Destructure children
 }: Props): React.JSX.Element {
   const addTask = async (): Promise<void> => {
     const newTask: PlannerTask = {
@@ -48,6 +50,8 @@ export default function HourBlock({
           setTasks={setTasks}
         />
       ))}
+
+      {children && <div className="mt-2">{children}</div>} {/* Render children */}
     </div>
   );
 }
