@@ -10,12 +10,13 @@ import EveningReflection from './EveningReflection';
 import CalendarOverview from './CalendarOverview';
 
 import { Button } from '@/components/ui/button';
+import React from 'react';
 
 const HOURS = Array.from({ length: 24 }, (_, i) =>
   `${String(i).padStart(2, '0')}:00`
 );
 
-export default function DailyPlanner(): JSX.Element {
+export default function DailyPlanner(): React.JSX.Element {
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
   const [reflection, setReflection] = useState<string>('');
   const [dayId, setDayId] = useState<string | null>(null);
