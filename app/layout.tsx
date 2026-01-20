@@ -17,6 +17,19 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "TGH",
+    startupImage: [
+      {
+        url: "/icon-512.png",
+        media: "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)",
+      },
+    ],
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "default",
+    "apple-mobile-web-app-title": "TGH",
+    "format-detection": "telephone=no",
+    "mobile-web-app-capable": "yes",
   },
 };
 

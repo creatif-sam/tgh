@@ -12,6 +12,7 @@ export default function ServiceWorkerRegistration() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     // Check if already in standalone mode
@@ -21,7 +22,16 @@ export default function ServiceWorkerRegistration() {
       console.log('Is standalone:', isStandaloneMode);
     };
 
+    // Check if device is iOS
+    const checkIOS = () => {
+      const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const iPadOS = navigator.userAgent.includes("Mac") && "ontouchend" in document;
+      setIsIOS(iOS || iPadOS);
+      console.log('Is iOS:', iOS || iPadOS);
+    };
+
     checkStandalone();
+    checkIOS();
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
@@ -64,6 +74,12 @@ export default function ServiceWorkerRegistration() {
   }, []);
 
   const handleInstallClick = async () => {
+    if (isIOS) {
+      // iOS installation instructions
+      alert('To install this app on iOS:\n1. Tap the Share button (📤)\n2. Select "Add to Home Screen"\n3. Tap "Add"');
+      return;
+    }
+
     if (deferredPrompt) {
       // Show the install prompt
       deferredPrompt.prompt();
@@ -105,7 +121,13 @@ export default function ServiceWorkerRegistration() {
             width: '48px',
             height: '48px'
           }}
-          title={deferredPrompt ? 'Install App' : 'How to Install'}
+          title={
+            isIOS
+              ? 'Add to Home Screen (iOS)'
+              : deferredPrompt
+                ? 'Install App'
+                : 'How to Install'
+          }
         >
           <Download size={20} />
         </button>
