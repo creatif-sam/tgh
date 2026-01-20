@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -92,17 +93,21 @@ export default function ServiceWorkerRegistration() {
             right: '20px',
             backgroundColor: '#8b5cf6',
             color: 'white',
-            padding: '12px 24px',
-            borderRadius: '8px',
+            padding: '12px',
+            borderRadius: '50%',
             border: 'none',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
             zIndex: 9999,
-            fontSize: '16px',
-            fontWeight: 'bold',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '48px',
+            height: '48px'
           }}
+          title={deferredPrompt ? 'Install App' : 'How to Install'}
         >
-          {deferredPrompt ? 'Install App' : 'How to Install'}
+          <Download size={20} />
         </button>
       )}
     </div>

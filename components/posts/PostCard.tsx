@@ -9,6 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Heart,
   MessageSquare,
   Send,
@@ -130,19 +136,12 @@ export default function PostCard({ post, currentUserId, onUpdate, onDelete }: Po
   };
 
   const handleComment = async () => {
-    console.log('handleComment called with:', newComment);
     if (!newComment.trim() || loading) {
-      console.log('Comment blocked - empty or loading:', { newComment: newComment.trim(), loading });
       return;
     }
     setLoading(true);
 
     const supabase = createClient();
-    console.log('Inserting comment:', {
-      post_id: post.id,
-      author_id: currentUserId,
-      content: newComment
-    });
 
     const { data, error } = await supabase
       .from('post_comments')
@@ -157,12 +156,9 @@ export default function PostCard({ post, currentUserId, onUpdate, onDelete }: Po
       `)
       .single();
 
-    console.log('Comment insert result:', { data, error });
-
     if (data) {
       setComments(prev => [...prev, { ...data, replies: [] }]);
       setNewComment('');
-      console.log('Comment added successfully');
     } else {
       console.error('Failed to add comment:', error);
     }
@@ -256,9 +252,30 @@ export default function PostCard({ post, currentUserId, onUpdate, onDelete }: Po
               </p>
             </div>
           </div>
-          {post.visibility === 'shared' && (
-            <Badge variant="secondary" className="text-xs">Shared</Badge>
-          )}
+          <div className="flex items-center space-x-2">
+            {post.visibility === 'shared' && (
+              <Badge variant="secondary" className="text-xs">Shared</Badge>
+            )}
+            {currentUserId === post.author_id && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onUpdate?.(post.id, post.content)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDelete?.(post.id)} className="text-red-600">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -304,7 +321,6 @@ export default function PostCard({ post, currentUserId, onUpdate, onDelete }: Po
               <Button
                 size="sm"
                 onClick={() => {
-                  console.log('Send button clicked');
                   handleComment();
                 }}
                 disabled={!newComment.trim() || loading}
