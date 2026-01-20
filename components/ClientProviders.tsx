@@ -1,11 +1,11 @@
 'use client';
 
-import { PwaRegister } from './pwa-register';
+import ServiceWorkerRegistration from './ServiceWorkerRegistration';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <PwaRegister />
+      <ServiceWorkerRegistration />
       {children}
     </>
   );
