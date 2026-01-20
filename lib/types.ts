@@ -28,6 +28,7 @@ export type Profile = {
   name?: string;
   created_at: string;
   avatar_url?: string;
+  last_seen?: string;
 };
 
 export type PlannerYear = {
