@@ -23,6 +23,25 @@ export type Post = {
   created_at: string;
 };
 
+export type PostReaction = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  reaction: string;
+  created_at: string;
+};
+
+export type PostComment = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  parent_comment_id?: string;
+  content: string;
+  created_at: string;
+  profiles?: Profile;
+  replies?: PostComment[];
+};
+
 export type Profile = {
   id: string;
   name?: string;

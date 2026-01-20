@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Post, Profile } from '@/lib/types'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import PostCard from '@/components/posts/PostCard'
 
 type PostWithProfile = Post & { profiles: Profile }
 
@@ -31,7 +32,7 @@ export default function PostsPage() {
   const [showNewPost, setShowNewPost] = useState(false)
   const [newPostContent, setNewPostContent] = useState('')
   const [newPostVisibility, setNewPostVisibility] =
-    useState<'private' | 'shared'>('private')
+    useState<'private' | 'shared'>('shared')
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -45,12 +46,23 @@ export default function PostsPage() {
 
     setUserId(auth.user.id)
 
+    // Debug: Check all posts to see visibility
+    const { data: allPosts } = await supabase
+      .from('posts')
+      .select(`*, profiles:author_id (name, avatar_url)`)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    console.log('All posts:', allPosts)
+
+    // Fetch all shared posts from all users
     const { data } = await supabase
       .from('posts')
       .select(`*, profiles:author_id (name, avatar_url)`)
-      .or(`author_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
+      .eq('visibility', 'shared')
       .order('created_at', { ascending: false })
 
+    console.log('Shared posts:', data)
     setPosts(data ?? [])
     setLoading(false)
   }
@@ -155,114 +167,12 @@ export default function PostsPage() {
           <PostCard
             key={post.id}
             post={post}
-            canEdit={post.author_id === userId}
+            currentUserId={userId || ''}
             onUpdate={updatePost}
             onDelete={deletePost}
           />
         ))}
       </div>
     </div>
-  )
-}
-
-function PostCard({
-  post,
-  canEdit,
-  onUpdate,
-  onDelete,
-}: {
-  post: PostWithProfile
-  canEdit: boolean
-  onUpdate: (id: string, content: string) => void
-  onDelete: (id: string) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [content, setContent] = useState(post.content)
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="font-medium">
-              {(post.profiles as Profile)?.name ?? 'User'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(post.created_at), 'MMM d, h:mm a')}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge variant={post.visibility === 'shared' ? 'default' : 'secondary'}>
-              {post.visibility}
-            </Badge>
-
-            {canEdit && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setEditing(!editing)}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(post.id)}
-                >
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-3">
-        {editing ? (
-          <>
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => {
-                  onUpdate(post.id, content)
-                  setEditing(false)
-                }}
-              >
-                Save
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setContent(post.content)
-                  setEditing(false)
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </>
-        ) : (
-          <p className="text-sm">{post.content}</p>
-        )}
-
-        <div className="flex items-center gap-4 text-muted-foreground">
-          <Button variant="ghost" size="sm">
-            <Heart className="w-4 h-4 mr-1" />
-            Like
-          </Button>
-          <Button variant="ghost" size="sm">
-            <MessageSquare className="w-4 h-4 mr-1" />
-            Comment
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

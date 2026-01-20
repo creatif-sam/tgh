@@ -26,10 +26,13 @@ import {
 import { format } from 'date-fns'
 import DailyActionWord from '@/components/daily-action-word'
 import Link from 'next/link'
+import PostCard from '@/components/posts/PostCard'
 
 export default function HomePage() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [posts, setPosts] =
+    useState<(Post & { profiles: Profile })[]>([])
+  const [socialFeedPosts, setSocialFeedPosts] =
     useState<(Post & { profiles: Profile })[]>([])
   const [todayPlanner, setTodayPlanner] = useState<{
     reflection?: string
@@ -38,6 +41,7 @@ export default function HomePage() {
   const [videoId, setVideoId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
 
   useEffect(() => {
     void fetchDashboardData()
@@ -48,6 +52,7 @@ export default function HomePage() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return
 
+    setCurrentUserId(auth.user.id)
     setUserName(auth.user.user_metadata?.full_name ?? null)
 
     const { data: goalsData } = await supabase
@@ -64,6 +69,16 @@ export default function HomePage() {
       .or(`author_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
       .order('created_at', { ascending: false })
       .limit(2)
+
+    // Fetch social feed posts (all shared posts)
+    const { data: socialFeedData } = await supabase
+      .from('posts')
+      .select(`*, profiles:author_id (name, avatar_url)`)
+      .eq('visibility', 'shared')
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    console.log('Social feed posts:', socialFeedData)
 
     const today = new Date().toISOString().split('T')[0]
     const { data: plannerData } = await supabase
@@ -83,6 +98,7 @@ export default function HomePage() {
 
     setGoals(goalsData ?? [])
     setPosts(postsData ?? [])
+    setSocialFeedPosts(socialFeedData ?? [])
     setTodayPlanner(plannerData ?? null)
     setVideoId(videoData?.youtube_id ?? null)
     setLoading(false)
@@ -112,6 +128,38 @@ export default function HomePage() {
 
         {/* Daily Action Word */}
       <DailyActionWord />
+
+      {/* Community Feed */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-violet-600" />
+            Community Feed
+          </CardTitle>
+          <Link
+            href="/protected/posts"
+            className="text-xs text-violet-600 flex items-center gap-1"
+          >
+            View all posts
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {socialFeedPosts.length ? (
+            socialFeedPosts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUserId={currentUserId}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No shared posts yet. Be the first to share something!
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Video Focus */}
       <Card className="overflow-hidden">
@@ -257,27 +305,11 @@ export default function HomePage() {
         <CardContent className="space-y-4">
           {posts.length ? (
             posts.map((post) => (
-              <div key={post.id} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage
-                      src={post.profiles?.avatar_url ?? undefined}
-                    />
-                    <AvatarFallback>
-                      {post.profiles?.name?.[0] ?? 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {post.profiles?.name ?? 'User'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(post.created_at), 'MMM d')}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-sm">{post.content}</p>
-              </div>
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUserId={currentUserId}
+              />
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
