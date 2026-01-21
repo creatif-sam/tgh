@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { ClientProviders } from "@/components/ClientProviders";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -64,6 +65,7 @@ export default function RootLayout({
           <ClientProviders>
             {children}
           </ClientProviders>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

@@ -136,7 +136,7 @@ export default function HomePage() {
           {videoId ? (
             <iframe
               className="w-full h-full"
-              src={`https://www.youtube.com/embed/${videoId}`}
+              src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`}
               title="Daily Discipline and Action"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen

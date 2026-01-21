@@ -40,6 +40,17 @@ export function NewGoalForm({
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return
 
+    // Get user's partner if sharing
+    let partnerId = null
+    if (visibility === 'shared') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('partner_id')
+        .eq('id', auth.user.id)
+        .single()
+      partnerId = profile?.partner_id
+    }
+
     const { data, error } = await supabase
       .from('goals')
       .insert({
@@ -49,6 +60,7 @@ export function NewGoalForm({
         visibility,
         goal_type: goalType,
         owner_id: auth.user.id,
+        partner_id: partnerId,
       })
       .select()
       .single()

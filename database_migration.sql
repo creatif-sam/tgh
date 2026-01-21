@@ -3,6 +3,12 @@
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP WITH TIME ZONE;
 
+-- Add avatar_url column to profiles table if it doesn't exist
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- Add partner_id column to profiles table for partner relationships
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS partner_id UUID REFERENCES profiles(id);
+
 -- Optional: Update existing profiles with current timestamp
 -- UPDATE profiles SET last_seen = NOW() WHERE last_seen IS NULL;
 
@@ -154,5 +160,152 @@ FOR UPDATE USING (auth.uid() = author_id);
 CREATE POLICY "Users can delete own comments" ON post_comments
 FOR DELETE USING (auth.uid() = author_id);
 
--- Optional: Update existing posts to shared visibility for social feed
--- UPDATE posts SET visibility = 'shared' WHERE visibility = 'private';
+-- Storage Policies for Profile Pictures
+-- IMPORTANT: Before running this, create the 'avatars' bucket:
+-- 1. Go to Supabase Dashboard → Storage
+-- 2. Click "Create bucket"
+-- 3. Name it "avatars"
+-- 4. Enable "Public bucket" for public avatar access
+-- 5. Then run this migration
+
+-- Enable RLS on storage.objects if not already enabled
+-- (This is usually enabled by default for storage)
+
+-- Drop existing policies if they exist to avoid conflicts
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own avatar" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view avatars" ON storage.objects;
+
+-- Allow users to upload their own avatar
+CREATE POLICY "Users can upload their own avatar" ON storage.objects
+FOR INSERT WITH CHECK (
+  bucket_id = 'avatars' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Allow users to update their own avatar (more permissive for updates)
+CREATE POLICY "Users can update their own avatar" ON storage.objects
+FOR UPDATE USING (
+  bucket_id = 'avatars' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+) WITH CHECK (
+  bucket_id = 'avatars' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Allow users to delete their own avatar
+CREATE POLICY "Users can delete their own avatar" ON storage.objects
+FOR DELETE USING (
+  bucket_id = 'avatars' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);
+
+-- Allow public access to view avatars
+CREATE POLICY "Anyone can view avatars" ON storage.objects
+FOR SELECT USING (bucket_id = 'avatars');
+
+-- Alternative: Simpler storage policies (uncomment if the above don't work)
+-- These policies allow users to manage any file in their user folder
+
+/*
+-- Allow users to manage their own avatar files
+CREATE POLICY "Users can manage their avatar files" ON storage.objects
+FOR ALL USING (
+  bucket_id = 'avatars' AND
+  (auth.uid()::text = split_part(name, '/', 1))
+)
+WITH CHECK (
+  bucket_id = 'avatars' AND
+  (auth.uid()::text = split_part(name, '/', 1))
+);
+
+-- Allow public access to view avatars
+CREATE POLICY "Anyone can view avatars" ON storage.objects
+FOR SELECT USING (bucket_id = 'avatars');
+*/
+
+-- Push Notifications Tables and Policies
+
+-- Create push_subscriptions table to store user notification subscriptions
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, endpoint)
+);
+
+-- Create notification_preferences table for user notification settings
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  messages BOOLEAN DEFAULT true,
+  planner_reminders BOOLEAN DEFAULT true,
+  goal_deadlines BOOLEAN DEFAULT true,
+  goal_progress BOOLEAN DEFAULT true,
+  posts BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Create notifications table to store sent notifications
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('message', 'planner_reminder', 'goal_deadline', 'goal_progress', 'post', 'system')),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  data JSONB DEFAULT '{}',
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  sent_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Enable RLS on push_subscriptions
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to manage their own push subscriptions
+CREATE POLICY "Users can manage own push subscriptions" ON push_subscriptions
+FOR ALL USING (auth.uid() = user_id);
+
+-- Enable RLS on notification_preferences
+ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to manage their own notification preferences
+CREATE POLICY "Users can manage own notification preferences" ON notification_preferences
+FOR ALL USING (auth.uid() = user_id);
+
+-- Enable RLS on notifications
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to view their own notifications
+CREATE POLICY "Users can view own notifications" ON notifications
+FOR SELECT USING (auth.uid() = user_id);
+
+-- Allow users to update their own notifications (mark as read)
+CREATE POLICY "Users can update own notifications" ON notifications
+FOR UPDATE USING (auth.uid() = user_id);
+
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Add triggers for updated_at
+CREATE TRIGGER update_push_subscriptions_updated_at
+  BEFORE UPDATE ON push_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_notification_preferences_updated_at
+  BEFORE UPDATE ON notification_preferences
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

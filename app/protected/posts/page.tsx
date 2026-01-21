@@ -55,11 +55,11 @@ export default function PostsPage() {
 
     console.log('All posts:', allPosts)
 
-    // Fetch all shared posts from all users
+    // Fetch shared posts that the user can see (all shared posts + posts shared specifically with this user)
     const { data } = await supabase
       .from('posts')
       .select(`*, profiles:author_id (name, avatar_url)`)
-      .eq('visibility', 'shared')
+      .or(`visibility.eq.shared,partner_id.eq.${auth.user.id}`)
       .order('created_at', { ascending: false })
 
     console.log('Shared posts:', data)
@@ -73,12 +73,24 @@ export default function PostsPage() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return
 
+    // Get user's partner if sharing
+    let partnerId = null
+    if (newPostVisibility === 'shared') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('partner_id')
+        .eq('id', auth.user.id)
+        .single()
+      partnerId = profile?.partner_id
+    }
+
     const { data } = await supabase
       .from('posts')
       .insert({
         content: newPostContent,
         visibility: newPostVisibility,
         author_id: auth.user.id,
+        partner_id: partnerId,
       })
       .select(`*, profiles:author_id (name, avatar_url)`)
       .single()

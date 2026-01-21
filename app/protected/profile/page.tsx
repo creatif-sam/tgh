@@ -8,9 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, Camera, Save } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { LogOut, Camera, Save, Users } from 'lucide-react';
 import DisciplineVideosForm from '@/components/profile/DisciplineVideosForm';
 import UserProfilesList from '@/components/profile/UserProfilesList';
+import PushNotificationManager from '@/components/PushNotificationManager';
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -20,12 +28,15 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [goalStats, setGoalStats] = useState({ total: 0, completed: 0 });
   const [postCount, setPostCount] = useState(0);
+  const [availablePartners, setAvailablePartners] = useState<Profile[]>([]);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     fetchProfile();
     fetchStats();
+    fetchPartners();
   }, []);
 
   const fetchProfile = async () => {
@@ -41,6 +52,7 @@ export default function ProfilePage() {
 
     setProfile(data);
     setName(data?.name || '');
+    setSelectedPartnerId(data?.partner_id || '');
     setLoading(false);
   };
 
@@ -56,6 +68,21 @@ export default function ProfilePage() {
     if (!error) {
       setProfile({ ...profile, name });
       setEditing(false);
+    }
+  };
+
+  const updatePartner = async (partnerId: string) => {
+    if (!profile) return;
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ partner_id: partnerId || null })
+      .eq('id', profile.id);
+
+    if (!error) {
+      setProfile({ ...profile, partner_id: partnerId || undefined });
+      setSelectedPartnerId(partnerId);
     }
   };
 
@@ -116,6 +143,20 @@ export default function ProfilePage() {
       .eq('author_id', user.id);
 
     setPostCount(posts?.length || 0);
+  };
+
+  const fetchPartners = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('id', user.id)
+      .order('name');
+
+    setAvailablePartners(data || []);
   };
 
   if (loading) {
@@ -197,6 +238,37 @@ export default function ProfilePage() {
             <Label>Email</Label>
             <p className="text-muted-foreground">{profile?.id}</p>
           </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Partner
+            </Label>
+            <Select value={selectedPartnerId || 'none'} onValueChange={(value) => updatePartner(value === 'none' ? '' : value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select your partner" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No partner</SelectItem>
+                {availablePartners.map((partner) => (
+                  <SelectItem key={partner.id} value={partner.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-6 h-6">
+                        <AvatarImage src={partner.avatar_url} />
+                        <AvatarFallback className="text-xs">
+                          {partner.name?.[0] || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      {partner.name || 'Unnamed User'}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Select your partner to share goals and posts with them.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -224,6 +296,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
       <DisciplineVideosForm />
+      <PushNotificationManager />
       <UserProfilesList />
 
     </div>
