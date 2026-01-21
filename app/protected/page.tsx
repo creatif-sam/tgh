@@ -12,18 +12,12 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import {
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-} from '@/components/ui/avatar'
-import {
   Target,
   Calendar,
   MessageCircle,
   ArrowRight,
   PlayCircle,
 } from 'lucide-react'
-import { format } from 'date-fns'
 import DailyActionWord from '@/components/daily-action-word'
 import Link from 'next/link'
 import PostCard from '@/components/posts/PostCard'
@@ -42,6 +36,17 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string>('')
+
+  // Dashboard statistics state
+  const [dashboardStats, setDashboardStats] = useState({
+    todayTasks: 0,
+    weekGoals: 0,
+    monthGoals: 0,
+    yearGoals: 0,
+    completedToday: 0,
+    totalGoals: 0,
+    completedGoals: 0,
+  })
 
   useEffect(() => {
     void fetchDashboardData()
@@ -101,6 +106,50 @@ export default function HomePage() {
     setSocialFeedPosts(socialFeedData ?? [])
     setTodayPlanner(plannerData ?? null)
     setVideoId(videoData?.youtube_id ?? null)
+
+    // Calculate dashboard statistics
+    const now = new Date()
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+    // Get all goals for statistics
+    const { data: allGoalsData } = await supabase
+      .from('goals')
+      .select('*')
+      .or(`owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
+
+    const allGoals = allGoalsData ?? []
+
+    // Calculate today's tasks
+    const todayTasksCount = todayPlanner?.tasks ? Object.keys(todayPlanner.tasks).length : 0
+
+    // Calculate goals by time period
+    const weekGoalsCount = allGoals.filter(goal => goal.created_at >= weekAgo).length
+    const monthGoalsCount = allGoals.filter(goal => goal.created_at >= monthAgo).length
+    const yearGoalsCount = allGoals.filter(goal => goal.created_at >= yearAgo).length
+
+    // Calculate completion stats
+    const completedGoalsCount = allGoals.filter(goal => goal.status === 'done').length
+    const totalGoalsCount = allGoals.length
+
+    // Calculate completed tasks today (if tasks have completion status)
+    let completedTodayCount = 0
+    if (todayPlanner?.tasks) {
+      const tasks = todayPlanner.tasks as Record<string, any>
+      completedTodayCount = Object.values(tasks).filter((task: any) => task?.completed === true).length
+    }
+
+    setDashboardStats({
+      todayTasks: todayTasksCount,
+      weekGoals: weekGoalsCount,
+      monthGoals: monthGoalsCount,
+      yearGoals: yearGoalsCount,
+      completedToday: completedTodayCount,
+      totalGoals: totalGoalsCount,
+      completedGoals: completedGoalsCount,
+    })
+
     setLoading(false)
   }
 
@@ -126,7 +175,88 @@ export default function HomePage() {
         </p>
       </div>
 
-        {/* Daily Action Word */}
+      {/* Dashboard Statistics */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-violet-600" />
+              <div>
+                <p className="text-2xl font-bold">{dashboardStats.todayTasks}</p>
+                <p className="text-xs text-muted-foreground">Today's Tasks</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-violet-600" />
+              <div>
+                <p className="text-2xl font-bold">{dashboardStats.weekGoals}</p>
+                <p className="text-xs text-muted-foreground">This Week</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-violet-600" />
+              <div>
+                <p className="text-2xl font-bold">{dashboardStats.monthGoals}</p>
+                <p className="text-xs text-muted-foreground">This Month</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-violet-600" />
+              <div>
+                <p className="text-2xl font-bold">{dashboardStats.yearGoals}</p>
+                <p className="text-xs text-muted-foreground">This Year</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Progress Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Progress Overview</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Today's Tasks</span>
+              <span>{dashboardStats.completedToday}/{dashboardStats.todayTasks} completed</span>
+            </div>
+            <Progress
+              value={dashboardStats.todayTasks > 0 ? (dashboardStats.completedToday / dashboardStats.todayTasks) * 100 : 0}
+              className="h-2"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>All Goals</span>
+              <span>{dashboardStats.completedGoals}/{dashboardStats.totalGoals} completed</span>
+            </div>
+            <Progress
+              value={dashboardStats.totalGoals > 0 ? (dashboardStats.completedGoals / dashboardStats.totalGoals) * 100 : 0}
+              className="h-2"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Daily Action Word */}
       <DailyActionWord />
 
      

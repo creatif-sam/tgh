@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronLeft, ChevronRight, Plus, Calendar } from 'lucide-react'
+import {
+  PlusCircle,
+  CheckCircle,
+  CheckCircle2,
+  Pencil
+} from 'lucide-react'
 import { TaskModal } from './tasks/TaskModal'
+import TopCalendar from './TopCalendar'
+import DaySummary from './DailySummary'
+import DailySummaryNotifier from './DailyNotifier'
+import FreeTimeExportButton from './FreeTimeExportButton'
 
 export interface PlannerTask {
   id: string
@@ -21,6 +30,7 @@ export interface PlannerTask {
 
 const HOURS_START = 5
 const HOURS_END = 23
+const UPCOMING_REMINDER_MINUTES = 10
 
 export default function DailyPlanner() {
   const supabase = createClient()
@@ -30,9 +40,16 @@ export default function DailyPlanner() {
   const [morning, setMorning] = useState('')
   const [reflection, setReflection] = useState('')
   const [taskModalHour, setTaskModalHour] = useState<number | null>(null)
-  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<PlannerTask | null>(null)
+  const [notifiedTasks, setNotifiedTasks] = useState<Set<string>>(new Set())
 
   const dateKey = selectedDate.toISOString().split('T')[0]
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
 
   useEffect(() => {
     loadDay()
@@ -52,6 +69,7 @@ export default function DailyPlanner() {
     setTasks(Array.isArray(data?.tasks) ? data.tasks : [])
     setMorning(data?.morning ?? '')
     setReflection(data?.reflection ?? '')
+    setNotifiedTasks(new Set())
   }
 
   async function saveDay(
@@ -71,16 +89,16 @@ export default function DailyPlanner() {
         reflection: updatedReflection,
         visibility: 'private',
       },
-      {
-        onConflict: 'day,user_id',
-      }
+      { onConflict: 'day,user_id' }
     )
   }
 
-  function navigate(dir: number) {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + dir)
-    setSelectedDate(d)
+  function toggleComplete(taskId: string) {
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, completed: !t.completed } : t
+    )
+    setTasks(updated)
+    saveDay(updated, morning, reflection)
   }
 
   function parseMinutes(time: string) {
@@ -88,89 +106,79 @@ export default function DailyPlanner() {
     return h * 60 + (m || 0)
   }
 
-  function formatMinutes(mins: number) {
-    const h = Math.floor(mins / 60)
-    const m = mins % 60
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  function getNowMinutes() {
+    const now = new Date()
+    return now.getHours() * 60 + now.getMinutes()
   }
 
-  function exportFreeTime() {
-    const busy = tasks
-      .map((t) => ({
-        start: parseMinutes(t.start),
-        end: parseMinutes(t.end),
-      }))
-      .sort((a, b) => a.start - b.start)
+  function getTaskStatus(task: PlannerTask) {
+    const now = getNowMinutes()
+    const start = parseMinutes(task.start)
+    const end = parseMinutes(task.end)
 
-    let cursor = HOURS_START * 60
-    const end = HOURS_END * 60
-    const free: { start: number; end: number }[] = []
+    if (task.completed) return 'completed'
+    if (now >= start && now < end) return 'ongoing'
+    if (now < start) return 'upcoming'
+    return 'past'
+  }
 
-    for (const b of busy) {
-      if (b.start > cursor) {
-        free.push({ start: cursor, end: b.start })
-      }
-      cursor = Math.max(cursor, b.end)
+  function notifyUpcoming(task: PlannerTask) {
+    if (Notification.permission !== 'granted') return
+    if (notifiedTasks.has(task.id)) return
+
+    const now = getNowMinutes()
+    const start = parseMinutes(task.start)
+    const diff = start - now
+
+    if (diff <= UPCOMING_REMINDER_MINUTES && diff > 0) {
+      const audio = new Audio('/sounds/upcoming.mp3')
+      audio.volume = 0.4
+      audio.play().catch(() => {})
+
+      new Notification('Upcoming Task', {
+        body: `${task.text} starts in ${diff} minutes`,
+      })
+
+      setNotifiedTasks((prev) => new Set(prev).add(task.id))
+    }
+  }
+
+  function getTaskClasses(task: PlannerTask) {
+    const status = getTaskStatus(task)
+
+    if (status === 'upcoming') {
+      notifyUpcoming(task)
     }
 
-    if (cursor < end) {
-      free.push({ start: cursor, end })
+    switch (status) {
+      case 'ongoing':
+        return 'bg-blue-600 text-white animate-ongoing transition-colors duration-500'
+      case 'upcoming':
+        return 'bg-yellow-500 text-black'
+      case 'completed':
+        return 'bg-green-600 text-white line-through'
+      default:
+        return 'bg-muted text-muted-foreground'
     }
-
-    const text =
-      `Free time for ${selectedDate.toDateString()}\n\n` +
-      free.map((f) => `${formatMinutes(f.start)} – ${formatMinutes(f.end)}`).join('\n')
-
-    navigator.clipboard.writeText(text)
-    alert('Free time copied')
   }
 
   return (
     <div className="p-4 space-y-5 max-w-xl mx-auto">
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <button onClick={() => navigate(-1)}>
-          <ChevronLeft />
-        </button>
+      <DailySummaryNotifier tasks={tasks} date={selectedDate} />
 
-        <div className="relative">
-          <button
-            onClick={() => setCalendarOpen(!calendarOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium"
-          >
-            <Calendar size={14} />
-            {selectedDate.toDateString()}
-          </button>
-
-          {calendarOpen && (
-            <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-background border rounded-xl p-2 shadow-lg z-20">
-              <input
-                type="date"
-                value={dateKey}
-                onChange={(e) => {
-                  setSelectedDate(new Date(e.target.value))
-                  setCalendarOpen(false)
-                }}
-                className="border rounded-md px-2 py-1 text-sm"
-              />
-            </div>
-          )}
-        </div>
-
-        <button onClick={() => navigate(1)}>
-          <ChevronRight />
-        </button>
+      <div className="space-y-4">
+        <TopCalendar
+          selectedDate={selectedDate}
+          onChange={setSelectedDate}
+        />
+        <DaySummary tasks={tasks} />
       </div>
 
-      {/* EXPORT */}
-      <button
-        onClick={exportFreeTime}
-        className="w-full rounded-xl bg-black text-white py-2 text-sm font-medium"
-      >
-        Export Free Time
-      </button>
+      <FreeTimeExportButton
+        tasks={tasks}
+        date={selectedDate}
+      />
 
-      {/* MORNING */}
       <div className="rounded-xl border p-3">
         <div className="text-sm font-medium mb-1">Morning Intention</div>
         <textarea
@@ -184,7 +192,6 @@ export default function DailyPlanner() {
         />
       </div>
 
-      {/* HOURS */}
       <div className="space-y-2">
         {Array.from(
           { length: HOURS_END - HOURS_START },
@@ -193,8 +200,11 @@ export default function DailyPlanner() {
           <div key={h} className="border rounded-lg p-2 space-y-2">
             <div className="flex justify-between items-center text-sm">
               <span>{h}:00</span>
-              <button onClick={() => setTaskModalHour(h)}>
-                <Plus size={16} />
+              <button
+                onClick={() => setTaskModalHour(h)}
+                className="flex items-center justify-center rounded-full border h-7 w-7 hover:bg-muted transition"
+              >
+                <PlusCircle size={18} className="opacity-70" />
               </button>
             </div>
 
@@ -207,11 +217,27 @@ export default function DailyPlanner() {
               .map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-lg px-3 py-2 text-sm bg-violet-600 text-white"
+                  className={`rounded-lg px-3 py-2 text-sm flex justify-between items-start gap-3 ${getTaskClasses(t)}`}
                 >
-                  {t.text}
-                  <div className="text-xs opacity-80">
-                    {t.start} to {t.end}
+                  <div>
+                    {t.text}
+                    <div className="text-xs opacity-80">
+                      {t.start} to {t.end}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => setEditingTask(t)}>
+                      <Pencil size={16} className="opacity-80" />
+                    </button>
+
+                    <button onClick={() => toggleComplete(t.id)}>
+                      {t.completed ? (
+                        <CheckCircle2 size={20} />
+                      ) : (
+                        <CheckCircle size={20} />
+                      )}
+                    </button>
                   </div>
                 </div>
               ))}
@@ -219,7 +245,6 @@ export default function DailyPlanner() {
         ))}
       </div>
 
-      {/* EVENING */}
       <div className="rounded-xl border p-3">
         <div className="text-sm font-medium mb-1">Evening Reflection</div>
         <textarea
@@ -233,15 +258,27 @@ export default function DailyPlanner() {
         />
       </div>
 
-      {taskModalHour !== null && (
+      {(taskModalHour !== null || editingTask) && (
         <TaskModal
-          hour={taskModalHour}
-          onClose={() => setTaskModalHour(null)}
+          hour={
+            editingTask
+              ? parseInt(editingTask.start.split(':')[0])
+              : taskModalHour!
+          }
+          existingTask={editingTask}
+          onClose={() => {
+            setTaskModalHour(null)
+            setEditingTask(null)
+          }}
           onSave={(task) => {
-            const updated = [...tasks, task]
+            const updated = editingTask
+              ? tasks.map((t) => (t.id === task.id ? task : t))
+              : [...tasks, task]
+
             setTasks(updated)
             saveDay(updated, morning, reflection)
             setTaskModalHour(null)
+            setEditingTask(null)
           }}
         />
       )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { PlannerTask } from '../DailyPlanner'
 import { TaskBasics } from './TaskBasics'
 import { TaskRecurrence } from './TaskRecurrence'
@@ -8,10 +8,12 @@ import { Modal } from './Modal'
 
 export function TaskModal({
   hour,
+  existingTask,
   onClose,
   onSave,
 }: {
   hour: number
+  existingTask?: PlannerTask | null
   onClose: () => void
   onSave: (t: PlannerTask) => void
 }) {
@@ -20,9 +22,34 @@ export function TaskModal({
   const [recurring, setRecurring] =
     useState<PlannerTask['recurring'] | null>(null)
 
+  useEffect(() => {
+    if (existingTask) {
+      setText(existingTask.text)
+      setEnd(parseInt(existingTask.end.split(':')[0]))
+      setRecurring(existingTask.recurring ?? null)
+    } else {
+      setText('')
+      setEnd(hour + 1)
+      setRecurring(null)
+    }
+  }, [existingTask, hour])
+
+  function handleSave() {
+    onSave({
+      id: existingTask?.id ?? crypto.randomUUID(),
+      text,
+      start: `${hour}:00`,
+      end: `${end}:00`,
+      completed: existingTask?.completed ?? false,
+      recurring: recurring ?? undefined,
+    })
+  }
+
   return (
     <Modal onClose={onClose}>
-      <h3 className="font-semibold mb-3">New Task</h3>
+      <h3 className="font-semibold mb-3">
+        {existingTask ? 'Edit Task' : 'New Task'}
+      </h3>
 
       <TaskBasics
         text={text}
@@ -38,16 +65,7 @@ export function TaskModal({
       />
 
       <button
-        onClick={() =>
-          onSave({
-            id: crypto.randomUUID(),
-            text,
-            start: `${hour}:00`,
-            end: `${end}:00`,
-            completed: false,
-            recurring: recurring ?? undefined,
-          })
-        }
+        onClick={handleSave}
         className="mt-4 w-full bg-violet-600 text-white rounded-lg py-2"
       >
         Save
