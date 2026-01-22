@@ -97,7 +97,8 @@ export function GoalsOverview({
         </h3>
     <GoalsDonutChart
   goals={goals}
-  categories={uiCategories}
+ categories={categories}
+
 />
 
 
