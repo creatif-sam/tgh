@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import TimedSound from '@/components/notifications/TimedSound'
 import {
   PlusCircle,
   CheckCircle,
@@ -32,8 +33,13 @@ const HOURS_START = 5
 const HOURS_END = 23
 const UPCOMING_REMINDER_MINUTES = 10
 
+
+
 export default function DailyPlanner() {
   const supabase = createClient()
+
+  const [playUpcomingSound, setPlayUpcomingSound] = useState(false)
+
 
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [tasks, setTasks] = useState<PlannerTask[]>([])
@@ -192,26 +198,25 @@ export default function DailyPlanner() {
     return 'past'
   }
 
-  function notifyUpcoming(task: PlannerTask) {
-    if (Notification.permission !== 'granted') return
-    if (notifiedTasks.has(task.id)) return
+function notifyUpcoming(task: PlannerTask) {
+  if (Notification.permission !== 'granted') return
+  if (notifiedTasks.has(task.id)) return
 
-    const now = getNowMinutes()
-    const start = parseMinutes(task.start)
-    const diff = start - now
+  const now = getNowMinutes()
+  const start = parseMinutes(task.start)
+  const diff = start - now
 
-    if (diff <= UPCOMING_REMINDER_MINUTES && diff > 0) {
-      const audio = new Audio('/sounds/upcoming.mp3')
-      audio.volume = 0.4
-      audio.play().catch(() => {})
+  if (diff <= UPCOMING_REMINDER_MINUTES && diff > 0) {
+    new Notification('Upcoming Task', {
+      body: `${task.text} starts in ${diff} minutes`,
+    })
 
-      new Notification('Upcoming Task', {
-        body: `${task.text} starts in ${diff} minutes`,
-      })
+    setPlayUpcomingSound(true)
 
-      setNotifiedTasks((prev) => new Set(prev).add(task.id))
-    }
+    setNotifiedTasks((prev) => new Set(prev).add(task.id))
   }
+}
+
 
   function getTaskClasses(task: PlannerTask) {
     const status = getTaskStatus(task)
@@ -234,6 +239,15 @@ export default function DailyPlanner() {
 
  return (
   <div className="p-4 space-y-5 max-w-xl mx-auto">
+
+    {playUpcomingSound && (
+  <TimedSound
+    src="/sounds/upcoming.mp3"
+    durationMs={5000}
+    onStop={() => setPlayUpcomingSound(false)}
+  />
+)}
+
     <DailySummaryNotifier tasks={tasks} date={selectedDate} />
 
     <div className="space-y-4">

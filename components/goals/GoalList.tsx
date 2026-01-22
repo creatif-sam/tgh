@@ -65,7 +65,13 @@ function GoalCard({
   onUpdated,
   onDeleted,
 }: {
-  goal: Goal
+  goal: Goal & {
+    goal_categories?: {
+      name: string
+      color: string
+      emoji: string
+    } | null
+  }
   onUpdated: (goal: Goal) => void
   onDeleted: (id: string) => void
 }) {
@@ -76,7 +82,8 @@ function GoalCard({
   const overdue =
     goal.due_date &&
     goal.status !== 'done' &&
-    new Date(goal.due_date) < new Date(new Date().toDateString())
+    new Date(goal.due_date) <
+      new Date(new Date().toDateString())
 
   const statusProgress: Record<Goal['status'], number> = {
     to_do: 0,
@@ -104,13 +111,35 @@ function GoalCard({
     }
   }
 
+  const category = goal.goal_categories
+
   return (
-    <Card className={overdue ? 'border-red-500 bg-red-50/20' : ''}>
+    <Card
+      className={
+        overdue ? 'border-red-500 bg-red-50/20' : ''
+      }
+    >
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">
-            {goal.title}
-          </CardTitle>
+        <div className="flex justify-between items-start gap-2">
+          <div className="space-y-1">
+            <CardTitle className="text-lg">
+              {goal.title}
+            </CardTitle>
+
+            {category && (
+              <span
+                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: `${category.color}20`,
+                  color: category.color,
+                }}
+              >
+                <span>{category.emoji}</span>
+                <span>{category.name}</span>
+              </span>
+            )}
+          </div>
+
           <GoalActions
             goal={goal}
             onUpdated={onUpdated}
@@ -125,7 +154,8 @@ function GoalCard({
               : 'text-muted-foreground'
           }`}
         >
-          Deadline {new Date(goal.due_date!).toLocaleDateString()}
+          Deadline{' '}
+          {new Date(goal.due_date!).toLocaleDateString()}
           {overdue && ' overdue'}
         </p>
       </CardHeader>
@@ -145,7 +175,9 @@ function GoalCard({
           <SelectContent>
             <SelectItem value="to_do">To Do</SelectItem>
             <SelectItem value="doing">Doing</SelectItem>
-            <SelectItem value="blocked">Blocked</SelectItem>
+            <SelectItem value="blocked">
+              Blocked
+            </SelectItem>
             <SelectItem value="done">Done</SelectItem>
           </SelectContent>
         </Select>

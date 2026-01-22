@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Goal } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -19,13 +19,23 @@ import {
 } from 'lucide-react'
 import { NewGoalForm } from '@/components/goals/NewGoalForm'
 import { GoalList } from '@/components/goals/GoalList'
+import { GoalsOverview } from '@/components/goals/GoalsOverview'
 
 type GoalView = 'weekly' | 'quarterly' | 'yearly'
+
+interface GoalCategory {
+  id: string
+  name: string
+  color: string
+  emoji: string | null
+}
 
 export default function GoalsPage() {
   const supabase = createClient()
 
   const [goals, setGoals] = useState<Goal[]>([])
+  const [categories, setCategories] =
+    useState<GoalCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [view, setView] = useState<GoalView>('weekly')
@@ -33,45 +43,55 @@ export default function GoalsPage() {
     useState(false)
 
   useEffect(() => {
-    loadGoals()
+    loadAll()
   }, [])
 
-  async function loadGoals() {
+  async function loadAll() {
     const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) return
+    if (!auth.user) {
+      setLoading(false)
+      return
+    }
 
-    const { data, error } = await supabase
-      .from('goals')
-      .select('*')
-      .or(`owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
-      .order('created_at', { ascending: false })
+    const [{ data: goalsData }, { data: categoryData }] =
+      await Promise.all([
+        supabase
+          .from('goals')
+          .select('*, goal_categories(*)')
+          .or(
+            `owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`
+          )
+          .order('created_at', { ascending: false }),
 
-    if (error) console.error(error)
+        supabase
+          .from('goal_categories')
+          .select('*')
+          .eq('user_id', auth.user.id),
+      ])
 
-    setGoals(data ?? [])
+    setGoals(goalsData ?? [])
+    setCategories(categoryData ?? [])
     setLoading(false)
   }
 
   function onCreated(goal: Goal) {
-    setGoals([goal, ...goals])
+    setGoals((g) => [goal, ...g])
     setShowNew(false)
   }
 
   function onUpdated(goal: Goal) {
-    setGoals(goals.map((g) => (g.id === goal.id ? goal : g)))
+    setGoals((g) =>
+      g.map((x) => (x.id === goal.id ? goal : x))
+    )
   }
 
   function onDeleted(id: string) {
-    setGoals(goals.filter((g) => g.id !== id))
+    setGoals((g) => g.filter((x) => x.id !== id))
   }
 
   function exportGoals(list: Goal[], title: string) {
-    const completed = list.filter((g) => g.status === 'done').length
-    const inProgress = list.length - completed
-
     const text =
-      `${title}\n` +
-      `Completed ${completed} In progress ${inProgress}\n\n` +
+      `${title}\n\n` +
       list
         .map(
           (g) =>
@@ -83,108 +103,73 @@ export default function GoalsPage() {
     alert('Exported to clipboard')
   }
 
-  if (loading) return <div className="p-4">Loading...</div>
-
   const now = new Date()
 
   const baseGoals = showSharedOnly
     ? goals.filter((g) => g.goal_type === 'combined')
     : goals
 
-  const weekly = baseGoals.filter((g) => {
-    if (!g.due_date) return false
-    const d = new Date(g.due_date)
-    const start = new Date(now)
-    start.setDate(now.getDate() - now.getDay())
-    const end = new Date(start)
-    end.setDate(start.getDate() + 7)
-    return d >= start && d < end
-  })
+  const filteredGoals = useMemo(() => {
+    if (view === 'weekly') {
+      const start = new Date(now)
+      start.setDate(now.getDate() - now.getDay())
+      const end = new Date(start)
+      end.setDate(start.getDate() + 7)
 
-  const quarterly = baseGoals.filter(
-    (g) =>
-      g.due_date &&
-      Math.floor(new Date(g.due_date).getMonth() / 3) ===
-        Math.floor(now.getMonth() / 3) &&
-      new Date(g.due_date).getFullYear() ===
-        now.getFullYear()
-  )
+      return baseGoals.filter((g) => {
+        if (!g.due_date) return false
+        const d = new Date(g.due_date)
+        return d >= start && d < end
+      })
+    }
 
-  const yearly = baseGoals.filter(
-    (g) =>
-      g.due_date &&
-      new Date(g.due_date).getFullYear() ===
-        now.getFullYear()
-  )
+    if (view === 'quarterly') {
+      return baseGoals.filter((g) => {
+        if (!g.due_date) return false
+        const d = new Date(g.due_date)
+        return (
+          Math.floor(d.getMonth() / 3) ===
+            Math.floor(now.getMonth() / 3) &&
+          d.getFullYear() === now.getFullYear()
+        )
+      })
+    }
 
-  const activeGoals =
-    view === 'weekly'
-      ? weekly
-      : view === 'quarterly'
-      ? quarterly
-      : yearly
+    return baseGoals.filter(
+      (g) =>
+        g.due_date &&
+        new Date(g.due_date).getFullYear() ===
+          now.getFullYear()
+    )
+  }, [baseGoals, view])
 
   return (
-    <div className="p-4 space-y-6 max-w-3xl mx-auto">
-      <Tabs defaultValue="daily">
-        <TabsList className="grid grid-cols-2 mb-4">
-          <TabsTrigger value="daily">
-            <Calendar className="w-4 h-4 mr-2" />
-            Daily
-          </TabsTrigger>
-          <TabsTrigger value="goals">
-            <Target className="w-4 h-4 mr-2" />
-            Goals
-          </TabsTrigger>
-        </TabsList>
+    <div className="p-4 space-y-6 max-w-4xl mx-auto">
+      {loading ? (
+        <div className="p-4">Loading...</div>
+      ) : (
+        <Tabs defaultValue="overview">
+          <TabsList className="grid grid-cols-2 mb-4">
+            <TabsTrigger value="overview">
+              <Calendar className="w-4 h-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="goals">
+              <Target className="w-4 h-4 mr-2" />
+              Goals
+            </TabsTrigger>
+          </TabsList>
 
-        {/* DAILY TAB */}
-        <TabsContent value="daily">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-semibold">
-                Daily Planning
-              </h2>
-              <div className="flex gap-2">
-                <Button
-                  variant={
-                    showSharedOnly ? 'default' : 'outline'
-                  }
-                  size="sm"
-                  onClick={() =>
-                    setShowSharedOnly(!showSharedOnly)
-                  }
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Shared Goals
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setShowNew(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Goal
-                </Button>
-              </div>
-            </div>
+          {/* OVERVIEW TAB */}
+          <TabsContent value="overview">
+            <GoalsOverview
+              goals={filteredGoals}
+              categories={categories}
+            />
+          </TabsContent>
 
-            {showNew && (
-              <NewGoalForm
-                onCancel={() => setShowNew(false)}
-                onCreated={onCreated}
-              />
-            )}
-
-            <div className="rounded-xl border p-4 text-sm text-muted-foreground">
-              Create goals while planning your day. Shared
-              goals help align with your partner.
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* GOALS TAB */}
-        <TabsContent value="goals">
-          <div className="space-y-4">
+          {/* GOALS TAB */}
+          <TabsContent value="goals">
             <Tabs
               value={view}
               onValueChange={(v) =>
@@ -204,61 +189,68 @@ export default function GoalsPage() {
               </TabsList>
             </Tabs>
 
-            <div className="flex justify-between items-center">
-              <div className="text-sm font-semibold capitalize">
-                {view} goals
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={
-                    showSharedOnly ? 'default' : 'outline'
-                  }
-                  size="sm"
-                  onClick={() =>
-                    setShowSharedOnly(!showSharedOnly)
-                  }
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Shared
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    exportGoals(
-                      activeGoals,
-                      `${view.toUpperCase()} GOALS`
-                    )
-                  }
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setShowNew(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Goal
-                </Button>
+            <div className="grid md:grid-cols-2 gap-6 mt-6">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <div className="text-sm font-semibold capitalize">
+                    {view} goals
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={
+                        showSharedOnly
+                          ? 'default'
+                          : 'outline'
+                      }
+                      size="sm"
+                      onClick={() =>
+                        setShowSharedOnly(!showSharedOnly)
+                      }
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      Shared
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        exportGoals(
+                          filteredGoals,
+                          `${view.toUpperCase()} GOALS`
+                        )
+                      }
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowNew(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      New
+                    </Button>
+                  </div>
+                </div>
+
+                {showNew && (
+                  <NewGoalForm
+                    categories={categories}
+                    onCancel={() => setShowNew(false)}
+                    onCreated={onCreated}
+                  />
+                )}
+
+                <GoalList
+                  goals={filteredGoals}
+                  onUpdated={onUpdated}
+                  onDeleted={onDeleted}
+                />
               </div>
             </div>
-
-            {showNew && (
-              <NewGoalForm
-                onCancel={() => setShowNew(false)}
-                onCreated={onCreated}
-              />
-            )}
-
-            <GoalList
-              goals={activeGoals}
-              onUpdated={onUpdated}
-              onDeleted={onDeleted}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }

@@ -3,14 +3,24 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Goal, Post, Profile } from '@/lib/types'
+
+import HomeHeader from '@/components/home/HomeHeader'
+import ProgressOverview from '@/components/home/ProgressOverview'
+import DailyActionWord from '@/components/daily-action-word'
+import PostCard from '@/components/posts/PostCard'
+import DashboardStats, {
+  computeDashboardStats,
+} from '@/components/home/DashboardStats'
+
 import {
   Card,
-  CardContent,
   CardHeader,
   CardTitle,
+  CardContent,
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+
 import {
   Target,
   Calendar,
@@ -18,249 +28,117 @@ import {
   ArrowRight,
   PlayCircle,
 } from 'lucide-react'
-import DailyActionWord from '@/components/daily-action-word'
 import Link from 'next/link'
-import PostCard from '@/components/posts/PostCard'
 
 export default function HomePage() {
+  const supabase = createClient()
+
+  const [userName, setUserName] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string>('')
+
   const [goals, setGoals] = useState<Goal[]>([])
   const [posts, setPosts] =
     useState<(Post & { profiles: Profile })[]>([])
   const [socialFeedPosts, setSocialFeedPosts] =
     useState<(Post & { profiles: Profile })[]>([])
+
   const [todayPlanner, setTodayPlanner] = useState<{
     reflection?: string
     tasks?: Record<string, unknown>
   } | null>(null)
-  const [videoId, setVideoId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [userName, setUserName] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string>('')
 
-  // Dashboard statistics state
-  const [dashboardStats, setDashboardStats] = useState({
-    todayTasks: 0,
-    weekGoals: 0,
-    monthGoals: 0,
-    yearGoals: 0,
-    completedToday: 0,
-    totalGoals: 0,
-    completedGoals: 0,
-  })
+  const [videoId, setVideoId] = useState<string | null>(null)
 
   useEffect(() => {
-    void fetchDashboardData()
+    loadHomeData()
   }, [])
 
-  async function fetchDashboardData() {
-    const supabase = createClient()
+
+    useEffect(() => {
+    async function loadProfile() {
+      const { data: auth } = await supabase.auth.getUser()
+      if (!auth.user) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', auth.user.id)
+        .single()
+
+      setUserName(profile?.name ?? null)
+    }
+
+    loadProfile()
+  }, [])
+
+  async function loadHomeData() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return
 
     setCurrentUserId(auth.user.id)
-    setUserName(auth.user.user_metadata?.full_name ?? null)
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', auth.user.id)
+      .single()
+
+    setUserName(profile?.full_name ?? null)
 
     const { data: goalsData } = await supabase
       .from('goals')
       .select('*')
-      .or(`owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
-      .eq('visibility', 'shared')
-      .order('created_at', { ascending: false })
-      .limit(3)
+      .or(
+        `owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`
+      )
+
+    setGoals(goalsData ?? [])
 
     const { data: postsData } = await supabase
       .from('posts')
-      .select(`*, profiles:author_id (name, avatar_url)`)
-      .or(`author_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
+      .select('*, profiles(*)')
+      .eq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
-      .limit(2)
 
-    // Fetch social feed posts (all shared posts)
-    const { data: socialFeedData } = await supabase
+    setPosts(postsData ?? [])
+
+    const { data: socialFeed } = await supabase
       .from('posts')
-      .select(`*, profiles:author_id (name, avatar_url)`)
-      .eq('visibility', 'shared')
+      .select('*, profiles(*)')
+      .neq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
       .limit(5)
 
-    console.log('Social feed posts:', socialFeedData)
-
-    const today = new Date().toISOString().split('T')[0]
-    const { data: plannerData } = await supabase
-      .from('planner_days')
-      .select('*')
-      .eq('day', today)
-      .single()
-
-    const { data: videoData } = await supabase
-      .from('discipline_videos')
-      .select('*')
-      .eq('user_id', auth.user.id)
-      .order('is_active', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    setGoals(goalsData ?? [])
-    setPosts(postsData ?? [])
-    setSocialFeedPosts(socialFeedData ?? [])
-    setTodayPlanner(plannerData ?? null)
-    setVideoId(videoData?.youtube_id ?? null)
-
-    // Calculate dashboard statistics
-    const now = new Date()
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
-    // Get all goals for statistics
-    const { data: allGoalsData } = await supabase
-      .from('goals')
-      .select('*')
-      .or(`owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
-
-    const allGoals = allGoalsData ?? []
-
-    // Calculate today's tasks
-    const todayTasksCount = todayPlanner?.tasks ? Object.keys(todayPlanner.tasks).length : 0
-
-    // Calculate goals by time period
-    const weekGoalsCount = allGoals.filter(goal => goal.created_at >= weekAgo).length
-    const monthGoalsCount = allGoals.filter(goal => goal.created_at >= monthAgo).length
-    const yearGoalsCount = allGoals.filter(goal => goal.created_at >= yearAgo).length
-
-    // Calculate completion stats
-    const completedGoalsCount = allGoals.filter(goal => goal.status === 'done').length
-    const totalGoalsCount = allGoals.length
-
-    // Calculate completed tasks today (if tasks have completion status)
-    let completedTodayCount = 0
-    if (todayPlanner?.tasks) {
-      const tasks = todayPlanner.tasks as Record<string, any>
-      completedTodayCount = Object.values(tasks).filter((task: any) => task?.completed === true).length
-    }
-
-    setDashboardStats({
-      todayTasks: todayTasksCount,
-      weekGoals: weekGoalsCount,
-      monthGoals: monthGoalsCount,
-      yearGoals: yearGoalsCount,
-      completedToday: completedTodayCount,
-      totalGoals: totalGoalsCount,
-      completedGoals: completedGoalsCount,
-    })
-
-    setLoading(false)
+    setSocialFeedPosts(socialFeed ?? [])
   }
 
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6 animate-pulse max-w-3xl mx-auto">
-        <div className="h-6 bg-muted rounded w-1/2" />
-        <div className="h-52 bg-muted rounded-xl" />
-        <div className="h-36 bg-muted rounded-xl" />
-      </div>
-    )
-  }
+  const stats = computeDashboardStats(goals)
 
   return (
     <div className="p-4 pb-24 space-y-8 max-w-3xl mx-auto">
-      {/* Greeting */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome{userName ? ` ${userName}` : ''}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Discipline today creates freedom tomorrow
-        </p>
-      </div>
+      <HomeHeader userName={userName} />
 
-      {/* Dashboard Statistics */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-violet-600" />
-              <div>
-                <p className="text-2xl font-bold">{dashboardStats.todayTasks}</p>
-                <p className="text-xs text-muted-foreground">Today's Tasks</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-violet-600" />
-              <div>
-                <p className="text-2xl font-bold">{dashboardStats.weekGoals}</p>
-                <p className="text-xs text-muted-foreground">This Week</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-violet-600" />
-              <div>
-                <p className="text-2xl font-bold">{dashboardStats.monthGoals}</p>
-                <p className="text-xs text-muted-foreground">This Month</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-violet-600" />
-              <div>
-                <p className="text-2xl font-bold">{dashboardStats.yearGoals}</p>
-                <p className="text-xs text-muted-foreground">This Year</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Progress Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Progress Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Today's Tasks</span>
-              <span>{dashboardStats.completedToday}/{dashboardStats.todayTasks} completed</span>
-            </div>
-            <Progress
-              value={dashboardStats.todayTasks > 0 ? (dashboardStats.completedToday / dashboardStats.todayTasks) * 100 : 0}
-              className="h-2"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>All Goals</span>
-              <span>{dashboardStats.completedGoals}/{dashboardStats.totalGoals} completed</span>
-            </div>
-            <Progress
-              value={dashboardStats.totalGoals > 0 ? (dashboardStats.completedGoals / dashboardStats.totalGoals) * 100 : 0}
-              className="h-2"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Daily Action Word */}
       <DailyActionWord />
 
-     
-      {/* Video Focus */}
+      <DashboardStats stats={stats} />
+
+      <ProgressOverview
+        completedToday={
+          goals.filter(
+            (g) =>
+              g.status === 'done' &&
+              g.due_date &&
+              new Date(g.due_date).toDateString() ===
+                new Date().toDateString()
+          ).length
+        }
+        todayTasks={stats.todayDue}
+        completedGoals={
+          goals.filter((g) => g.status === 'done').length
+        }
+        totalGoals={goals.length}
+      />
+
       <Card className="overflow-hidden">
         <div className="relative aspect-video bg-black">
           {videoId ? (
@@ -288,11 +166,7 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-
-
-
-
-      {/* Today Focus */}
+{/* Today Focus */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -315,13 +189,12 @@ export default function HomePage() {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No plan created for today
+              No plan created for today & You will waste time if you don't plan it.
             </p>
           )}
         </CardContent>
       </Card>
 
-      {/* Shared Goals */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -368,7 +241,6 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-       {/* Community Feed */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -394,17 +266,12 @@ export default function HomePage() {
             ))
           ) : (
             <p className="text-sm text-muted-foreground">
-              No shared posts yet. Be the first to share something!
+              No shared posts yet. Be the first to share something
             </p>
           )}
         </CardContent>
       </Card>
 
-
-
-      
-
-      {/* Recent Reflections */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
