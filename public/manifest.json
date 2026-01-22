@@ -1,6 +1,6 @@
 {
-  "name": "Samuel-Urbright Goals  & Habits",
-  "short_name": "SamUr🤍",
+  "name": "SamUr",
+  "short_name": "SamUr",
   "description": "A personal app for partners to share goals, plan, and connect",
   "start_url": "/",
   "display": "standalone",
@@ -42,7 +42,7 @@
       "short_name": "Post",
       "description": "Create a new post",
       "url": "/protected/posts",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icon-192-v2.png", "sizes": "192x192" }]
     },
     {
       "name": "Daily Planner",

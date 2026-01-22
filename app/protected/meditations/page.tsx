@@ -170,10 +170,6 @@ ${m.prayer}
         </div>
       </header>
 
-      <div className="rounded-lg border bg-background p-4">
-        <MeditationStreakBoard meditations={meditations} />
-      </div>
-
       {/* Composer */}
       {editing && (
         <MeditationComposer
