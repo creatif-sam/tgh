@@ -48,7 +48,6 @@ export interface GoalCategory {
   emoji?: string
 }
 
-
 export function NewGoalForm({
   onCancel,
   onCreated,
@@ -62,6 +61,7 @@ export function NewGoalForm({
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [deliverable, setDeliverable] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [categoryId, setCategoryId] = useState('')
 
@@ -143,6 +143,7 @@ export function NewGoalForm({
       .insert({
         title: title.trim(),
         description: description.trim(),
+        deliverable: deliverable.trim() || null,
         due_date: dueDate,
         category_id: categoryId,
         goal_type: goalType,
@@ -157,6 +158,12 @@ export function NewGoalForm({
       console.error(error)
       return
     }
+
+    setTitle('')
+    setDescription('')
+    setDeliverable('')
+    setDueDate('')
+    setCategoryId('')
 
     onCreated(data)
   }
@@ -175,6 +182,14 @@ export function NewGoalForm({
           value={description}
           onChange={(e) =>
             setDescription(e.target.value)
+          }
+        />
+
+        <Input
+          placeholder="Deliverable or indicator"
+          value={deliverable}
+          onChange={(e) =>
+            setDeliverable(e.target.value)
           }
         />
 
@@ -201,13 +216,16 @@ export function NewGoalForm({
         </Select>
 
         {!showCategoryInput ? (
-          <button
-            type="button"
-            className="text-xs underline text-muted-foreground"
-            onClick={() => setShowCategoryInput(true)}
-          >
-            Add new category
-          </button>
+       <Button
+  type="button"
+  size="sm"
+  variant="outline"
+  className="text-violet-600 border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+  onClick={() => setShowCategoryInput(true)}
+>
+  Add new category
+</Button>
+
         ) : (
           <div className="space-y-2">
             <Input

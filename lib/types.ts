@@ -5,6 +5,7 @@ export type Goal = {
   goal_type: 'single' | 'combined';
   visibility: 'private' | 'shared';
   owner_id: string;
+  deliverable: string | null
   partner_id?: string;
   status: 'to_do' | 'doing' | 'blocked' | 'done';
   progress: number;
