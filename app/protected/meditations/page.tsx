@@ -16,13 +16,12 @@ interface MeditationWithMeta extends Meditation {
   created_at: string
 }
 
-
 type ViewMode = 'list' | 'grid'
 
 export default function MeditationsPage() {
-  const [meditations, setMeditations] = useState<Meditation[]>([])
+  const [meditations, setMeditations] = useState<MeditationWithMeta[]>([])
   const [showComposer, setShowComposer] = useState(false)
-  const [editing, setEditing] = useState<Meditation | null>(null)
+  const [editing, setEditing] = useState<MeditationWithMeta | null>(null)
   const [search, setSearch] = useState('')
   const [visibilityFilter, setVisibilityFilter] =
     useState<'all' | 'private' | 'shared'>('all')
@@ -44,7 +43,7 @@ export default function MeditationsPage() {
       return
     }
 
-    setMeditations(data ?? [])
+    setMeditations((data as MeditationWithMeta[]) ?? [])
   }
 
   const filteredMeditations = useMemo(() => {
@@ -67,9 +66,9 @@ ${m.title}
 
 ${m.scripture}
 
-${m.lesson ?? ''}
-${m.application ?? ''}
-${m.prayer ?? ''}
+${m.lesson}
+${m.application}
+${m.prayer}
     `.trim()
 
     navigator.clipboard.writeText(text)
@@ -77,6 +76,7 @@ ${m.prayer ?? ''}
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
+      {/* Header */}
       <header className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -127,7 +127,7 @@ ${m.prayer ?? ''}
             value={visibilityFilter}
             onChange={(e) =>
               setVisibilityFilter(
-                e.target.value as 'all' | 'private' | 'shared',
+                e.target.value as 'all' | 'private' | 'shared'
               )
             }
           >
@@ -153,6 +153,7 @@ ${m.prayer ?? ''}
         />
       )}
 
+      {/* LIST VIEW */}
       {viewMode === 'list' ? (
         <section className="divide-y border rounded-md">
           {filteredMeditations.map((m) => (
@@ -207,6 +208,7 @@ ${m.prayer ?? ''}
           ))}
         </section>
       ) : (
+        /* GRID VIEW */
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {filteredMeditations.map((m) => (
             <div
