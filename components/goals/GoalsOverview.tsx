@@ -95,11 +95,11 @@ export function GoalsOverview({
         <h3 className="text-sm font-semibold">
           Goals by Period
         </h3>
-        <GoalsDonutChart
-  data={pieData}
-  totalGoals={goals.length}
-  completedGoals={completed}
+    <GoalsDonutChart
+  goals={goals}
+  categories={uiCategories}
 />
+
 
       </div>
     </div>
