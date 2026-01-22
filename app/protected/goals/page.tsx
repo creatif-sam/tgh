@@ -30,6 +30,13 @@ interface GoalCategory {
   emoji: string | null
 }
 
+interface UiGoalCategory {
+  id: string
+  name: string
+  color: string
+  emoji?: string
+}
+
 export default function GoalsPage() {
   const supabase = createClient()
 
@@ -143,6 +150,18 @@ export default function GoalsPage() {
     )
   }, [baseGoals, view])
 
+  /* ✅ NORMALIZATION FIX */
+  const uiCategories: UiGoalCategory[] = useMemo(
+    () =>
+      categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        emoji: c.emoji ?? undefined,
+      })),
+    [categories]
+  )
+
   return (
     <div className="p-4 space-y-6 max-w-4xl mx-auto">
       {loading ? (
@@ -160,15 +179,13 @@ export default function GoalsPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* OVERVIEW TAB */}
           <TabsContent value="overview">
             <GoalsOverview
               goals={filteredGoals}
-              categories={categories}
+              categories={uiCategories}
             />
           </TabsContent>
 
-          {/* GOALS TAB */}
           <TabsContent value="goals">
             <Tabs
               value={view}
@@ -235,7 +252,7 @@ export default function GoalsPage() {
 
                 {showNew && (
                   <NewGoalForm
-                    categories={categories}
+                    categories={uiCategories}
                     onCancel={() => setShowNew(false)}
                     onCreated={onCreated}
                   />
