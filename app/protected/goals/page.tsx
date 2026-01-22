@@ -30,9 +30,8 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
-type GoalView = 'weekly' | 'quarterly' | 'yearly'
+type GoalView = 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 
-/* Database category shape */
 interface DbGoalCategory {
   id: string
   name: string
@@ -42,18 +41,15 @@ interface DbGoalCategory {
 
 export const dynamic = 'force-dynamic'
 
-
 export default function GoalsPage() {
   const supabase = createClient()
 
   const [goals, setGoals] = useState<Goal[]>([])
-  const [categories, setCategories] =
-    useState<DbGoalCategory[]>([])
+  const [categories, setCategories] = useState<DbGoalCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [view, setView] = useState<GoalView>('weekly')
-  const [showSharedOnly, setShowSharedOnly] =
-    useState(false)
+  const [showSharedOnly, setShowSharedOnly] = useState(false)
 
   useEffect(() => {
     loadAll()
@@ -75,7 +71,6 @@ export default function GoalsPage() {
             `owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`
           )
           .order('created_at', { ascending: false }),
-
         supabase
           .from('goal_categories')
           .select('*')
@@ -136,6 +131,17 @@ export default function GoalsPage() {
       })
     }
 
+    if (view === 'monthly') {
+      return baseGoals.filter((g) => {
+        if (!g.due_date) return false
+        const d = new Date(g.due_date)
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        )
+      })
+    }
+
     if (view === 'quarterly') {
       return baseGoals.filter((g) => {
         if (!g.due_date) return false
@@ -156,7 +162,6 @@ export default function GoalsPage() {
     )
   }, [baseGoals, view])
 
-  /* ✅ NORMALIZE DB → UI ONCE */
   const uiCategories: GoalCategory[] = useMemo(
     () =>
       categories.map((c) => ({
@@ -209,7 +214,6 @@ export default function GoalsPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* OVERVIEW TAB */}
           <TabsContent value="overview">
             <div className="border rounded-xl p-4 space-y-4">
               {pieData.length > 0 ? (
@@ -220,7 +224,6 @@ export default function GoalsPage() {
                         <Pie
                           data={pieData}
                           dataKey="value"
-                          nameKey="name"
                           innerRadius={50}
                           outerRadius={80}
                         >
@@ -232,28 +235,6 @@ export default function GoalsPage() {
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {pieData.map((c) => (
-                      <div
-                        key={c.name}
-                        className="flex items-center gap-2"
-                      >
-                        <span
-                          className="w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor: c.color,
-                          }}
-                        />
-                        <span>
-                          {c.emoji} {c.name}
-                        </span>
-                        <span className="ml-auto text-muted-foreground">
-                          {c.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </>
               ) : (
                 <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">
@@ -263,66 +244,70 @@ export default function GoalsPage() {
             </div>
           </TabsContent>
 
-          {/* GOALS TAB */}
           <TabsContent value="goals">
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <div className="text-sm font-semibold capitalize">
-                    {view} goals
-                  </div>
-                  <div className="flex gap-2">
+            <div className="space-y-4 mt-6">
+              <div className="flex gap-2">
+                {(['weekly', 'monthly', 'quarterly', 'yearly'] as const).map(
+                  (v) => (
                     <Button
-                      variant={
-                        showSharedOnly
-                          ? 'default'
-                          : 'outline'
-                      }
+                      key={v}
                       size="sm"
-                      onClick={() =>
-                        setShowSharedOnly(!showSharedOnly)
-                      }
+                      variant={view === v ? 'default' : 'outline'}
+                      onClick={() => setView(v)}
+                      className="capitalize"
                     >
-                      <Users className="w-4 h-4 mr-2" />
-                      Shared
+                      {v}
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        exportGoals(
-                          filteredGoals,
-                          `${view.toUpperCase()} GOALS`
-                        )
-                      }
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowNew(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      New
-                    </Button>
-                  </div>
-                </div>
-
-                {showNew && (
-                  <NewGoalForm
-                    categories={uiCategories}
-                    onCancel={() => setShowNew(false)}
-                    onCreated={onCreated}
-                  />
+                  )
                 )}
-
-                <GoalList
-                  goals={filteredGoals}
-                  onUpdated={onUpdated}
-                  onDeleted={onDeleted}
-                />
               </div>
+
+              <div className="flex justify-between">
+                <div className="text-sm font-semibold capitalize">
+                  {view} goals
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={showSharedOnly ? 'default' : 'outline'}
+                    onClick={() => setShowSharedOnly(!showSharedOnly)}
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Shared
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      exportGoals(
+                        filteredGoals,
+                        `${view.toUpperCase()} GOALS`
+                      )
+                    }
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button size="sm" onClick={() => setShowNew(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    New
+                  </Button>
+                </div>
+              </div>
+
+              {showNew && (
+                <NewGoalForm
+                  categories={uiCategories}
+                  onCancel={() => setShowNew(false)}
+                  onCreated={onCreated}
+                />
+              )}
+
+              <GoalList
+                goals={filteredGoals}
+                onUpdated={onUpdated}
+                onDeleted={onDeleted}
+              />
             </div>
           </TabsContent>
         </Tabs>
