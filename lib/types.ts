@@ -127,3 +127,17 @@ export type ReadingStatus =
   name: string
   emoji?: string
 }
+
+
+export type MeditationDB = {
+  id: string
+  author_id: string
+  title: string
+  scripture: string
+  lesson: string
+  application: string
+  prayer: string
+  visibility: 'private' | 'shared'
+  period: 'morning' | 'evening'
+  created_at: string
+}

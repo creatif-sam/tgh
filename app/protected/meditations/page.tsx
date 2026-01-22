@@ -9,8 +9,10 @@ import FeedSwitch from '@/components/feed/FeedSwitch'
 import MeditationComposer from '@/components/meditations/MeditationComposer'
 import { Pencil, Copy, LayoutGrid, List } from 'lucide-react'
 import MeditationStreakBoard from '@/components/meditations/MeditationStreakBoard'
+import PartnerMeditationBoard from '@/components/meditations/PartnerMeditationBoard'
 
-import type { Meditation } from '@/components/meditations/MeditationComposer'
+import type { MeditationDB } from '@/lib/types'
+
 
 interface MeditationWithMeta extends Meditation {
   id: string
@@ -20,8 +22,9 @@ interface MeditationWithMeta extends Meditation {
 type ViewMode = 'list' | 'grid'
 
 export default function MeditationsPage() {
-  const [meditations, setMeditations] = useState<MeditationWithMeta[]>([])
-  const [editing, setEditing] = useState<MeditationWithMeta | null>(null)
+const [meditations, setMeditations] = useState<MeditationDB[]>([])
+
+  const [editing, setEditing] = useState<MeditationDB | null>(null)
   const [search, setSearch] = useState('')
   const [visibilityFilter, setVisibilityFilter] =
     useState<'all' | 'private' | 'shared'>('all')
@@ -32,19 +35,30 @@ export default function MeditationsPage() {
   }, [])
 
   async function loadMeditations() {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('meditations')
-      .select('*')
-      .order('created_at', { ascending: false })
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('meditations')
+    .select(`
+      id,
+      author_id,
+      title,
+      scripture,
+      lesson,
+      application,
+      prayer,
+      visibility,
+      period,
+      created_at
+    `)
+    .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error(error)
-      return
-    }
-
-    setMeditations((data as MeditationWithMeta[]) ?? [])
+  if (error) {
+    console.error(error)
+    return
   }
+
+  setMeditations(data as MeditationDB[])
+}
 
   const filteredMeditations = useMemo(() => {
     return meditations.filter((m) => {
@@ -60,7 +74,7 @@ export default function MeditationsPage() {
     })
   }, [meditations, search, visibilityFilter])
 
-  function copyMeditation(m: Meditation) {
+  function copyMeditation(m: MeditationDB) {
     const text = `
 ${m.title}
 
@@ -108,7 +122,7 @@ ${m.prayer}
               <Button
                 size="icon"
                 variant="outline"
-                onClick={() => setEditing({} as MeditationWithMeta)}
+                onClick={() => setEditing({} as MeditationDB)}
               >
                 <Pencil className="h-5 w-5" />
               </Button>
@@ -135,7 +149,7 @@ ${m.prayer}
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setEditing({} as MeditationWithMeta)}
+                onClick={() => setEditing({} as MeditationDB)}
               >
                 Write meditation
               </Button>
@@ -173,6 +187,8 @@ ${m.prayer}
       <div className="rounded-lg border bg-background p-4">
         <MeditationStreakBoard meditations={meditations} />
       </div>
+
+       <PartnerMeditationBoard />
 
       {/* Composer */}
       {editing && (

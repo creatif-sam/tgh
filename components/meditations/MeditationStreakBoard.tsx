@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { MeditationDB } from '@/lib/types'
 
 interface Meditation {
   id: string
@@ -10,8 +11,9 @@ interface Meditation {
 }
 
 interface Props {
-  meditations?: Meditation[]
+  meditations: MeditationDB[]
 }
+
 
 interface DayCell {
   date: Date
