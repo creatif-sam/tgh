@@ -62,7 +62,7 @@ export default function HomeHeader({ userName }: HomeHeaderProps) {
     const mobileBase = new Date(now)
     mobileBase.setDate(now.getDate() - 1)
 
-    const mobileDays = Array.from({ length: 3 }).map((_, i) => {
+    const mobileDays = Array.from({ length: 4 }).map((_, i) => {
       const d = new Date(mobileBase)
       d.setDate(mobileBase.getDate() + i)
       return d
