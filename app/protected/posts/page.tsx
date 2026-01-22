@@ -129,26 +129,53 @@ export default function PostsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-   <header className="flex items-center justify-between">
-  <h1 className="text-xl font-semibold tracking-tight">Posts</h1>
+   <header className="space-y-3">
+  {/* Top row */}
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <h1 className="text-xl font-semibold tracking-tight">
+      Posts
+    </h1>
 
-  <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 justify-end">
+      {/* Meditation */}
+      <MeditationButton
+        onOpen={() => setShowMeditationComposer(true)}
+        className="sm:hidden"
+      />
+
+      <Button
+        size="icon"
+        variant="outline"
+        onClick={() => setShowComposer(!showComposer)}
+        className="sm:hidden"
+      >
+        <Plus className="w-5 h-5" />
+      </Button>
+
+      {/* Desktop actions */}
+      <div className="hidden sm:flex items-center gap-2">
+        <MeditationButton
+          onOpen={() => setShowMeditationComposer(true)}
+        />
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowComposer(!showComposer)}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Write
+        </Button>
+      </div>
+    </div>
+  </div>
+
+  {/* Feed switch row */}
+  <div className="flex justify-end sm:justify-start">
     <FeedSwitch />
-
-    <MeditationButton
-      onOpen={() => setShowMeditationComposer(true)}
-    />
-
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={() => setShowComposer(!showComposer)}
-    >
-      <Plus className="w-4 h-4 mr-2" />
-      Write
-    </Button>
   </div>
 </header>
+
 
 
       {showComposer && (
