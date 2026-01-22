@@ -12,6 +12,7 @@ export type Goal = {
   due_date?: string;
   created_at: string;
   completed_at?: string;
+  category_id?: string;
 };
 
 export type Post = {

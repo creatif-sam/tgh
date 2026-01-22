@@ -11,7 +11,7 @@ interface GoalCategory {
   id: string
   name: string
   color: string
-  emoji: string | null
+  emoji?: string
 }
 
 export function GoalsOverview({
