@@ -14,8 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-interface Meditation {
-  id: string
+export interface Meditation {
+  id?: string
   title: string
   scripture: string
   lesson: string
@@ -23,6 +23,7 @@ interface Meditation {
   prayer: string
   visibility: 'private' | 'shared'
 }
+
 
 interface MeditationComposerProps {
   meditation?: Meditation

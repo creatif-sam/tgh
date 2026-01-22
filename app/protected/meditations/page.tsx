@@ -9,16 +9,13 @@ import FeedSwitch from '@/components/feed/FeedSwitch'
 import MeditationComposer from '@/components/meditations/MeditationComposer'
 import { Pencil, Copy, LayoutGrid, List } from 'lucide-react'
 
-interface Meditation {
+import type { Meditation } from '@/components/meditations/MeditationComposer'
+
+interface MeditationWithMeta extends Meditation {
   id: string
-  title: string
-  scripture: string
-  lesson?: string
-  application?: string
-  prayer?: string
-  visibility: 'private' | 'shared'
   created_at: string
 }
+
 
 type ViewMode = 'list' | 'grid'
 
