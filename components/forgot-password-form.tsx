@@ -32,7 +32,7 @@ export function ForgotPasswordForm({
 
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "https://samur.gen116.com/reset-password",
+      redirectTo: "https://samur.gen116.com/update-password",
     });
     if (error) throw error;
     setSuccess(true);
