@@ -48,15 +48,23 @@ export interface GoalCategory {
   emoji?: string
 }
 
+export interface Vision {
+  id: string
+  title: string
+}
+
 export function NewGoalForm({
   onCancel,
   onCreated,
   categories,
+  visions,
 }: {
   onCancel: () => void
   onCreated: (goal: Goal) => void
   categories: GoalCategory[]
+  visions: Vision[]
 }) {
+
   const supabase = createClient()
 
   const [title, setTitle] = useState('')
@@ -64,6 +72,7 @@ export function NewGoalForm({
   const [deliverable, setDeliverable] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [visionId, setVisionId] = useState<string>('none') 
 
   const [goalType, setGoalType] =
     useState<'single' | 'combined'>('single')
@@ -84,6 +93,10 @@ export function NewGoalForm({
     Boolean(title.trim()) &&
     Boolean(dueDate) &&
     Boolean(categoryId)
+
+
+
+
 
   async function createCategory() {
     if (!newCategoryName.trim()) return
@@ -146,6 +159,7 @@ export function NewGoalForm({
         deliverable: deliverable.trim() || null,
         due_date: dueDate,
         category_id: categoryId,
+        vision_id: visionId === 'none' ? null : visionId,
         goal_type: goalType,
         visibility,
         owner_id: auth.user.id,
@@ -184,6 +198,20 @@ export function NewGoalForm({
             setDescription(e.target.value)
           }
         />
+
+        <Select value={visionId} onValueChange={setVisionId}>
+  <SelectTrigger>
+    <SelectValue placeholder="Linked Vision " />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="none">No Vision (Standalone)</SelectItem>
+    {visions.map((v) => (
+      <SelectItem key={v.id} value={v.id}>
+        ✨ {v.title}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 
         <Input
           placeholder="Deliverable or indicator"
