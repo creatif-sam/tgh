@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Sparkles, Loader2, Plus } from 'lucide-react'
+import { Sparkles, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4']
@@ -24,13 +24,12 @@ export function VisionCreator({ onCreated }: { onCreated: () => void }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newVision, setNewVision] = useState({ 
-  title: '', 
-  description: '', 
-  color: COLORS[0], 
-  emoji: EMOJIS[0],
-  target_date: '' // Add this
-})
-
+    title: '', 
+    description: '', 
+    color: COLORS[0], 
+    emoji: EMOJIS[0],
+    target_date: ''
+  })
 
   async function handleCreateVision() {
     if (!newVision.title) return
@@ -50,80 +49,90 @@ export function VisionCreator({ onCreated }: { onCreated: () => void }) {
     if (!error) {
       setIsOpen(false)
       setNewVision({ title: '', description: '', color: COLORS[0], emoji: EMOJIS[0], target_date: '' })
-      onCreated() // This refreshes the parent page
+      onCreated()
     }
     setIsCreating(false)
   }
 
-
-
-  // Inside your VisionCreator.tsx state
-
-// Add this Input inside the DialogContent scroll area
-
-
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-full gap-2 border-primary/20 hover:bg-primary/5">
-          <Sparkles className="w-4 h-4 text-primary" /> Cast New Vision
+        <Button variant="outline" className="rounded-full gap-2 border-primary/20 hover:bg-primary/5 active:scale-95 transition-transform">
+          <Sparkles className="w-4 h-4 text-primary" /> 
+          <span className="text-sm font-semibold">Cast New Vision</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">Define the North Star</DialogTitle>
-          <DialogDescription>What high-level outcome are you chasing?</DialogDescription>
+      
+      {/* Mobile optimization: 
+        - w-[95vw] keeps it from hitting screen edges 
+        - max-h-[90vh] ensures it doesn't get lost under the notch/home bar 
+        - overflow-y-auto handles small screens + keyboard
+      */}
+      <DialogContent className="w-[95vw] max-w-[425px] rounded-2xl overflow-y-auto max-h-[90vh] p-6 gap-0">
+        <DialogHeader className="text-left pb-4">
+          <DialogTitle className="text-xl font-black italic uppercase tracking-tighter">
+            Define the North Star
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            What high-level outcome are you chasing?
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 pt-2">
+          {/* Vision Title */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Vision Title</label>
             <Input 
               placeholder="e.g. Total Financial Freedom" 
               value={newVision.title}
               onChange={(e) => setNewVision({...newVision, title: e.target.value})}
-              className="border-0 bg-secondary/50 focus-visible:ring-primary font-bold"
+              // text-base (16px) prevents iOS zoom on focus
+              className="text-base border-0 bg-secondary/50 focus-visible:ring-primary font-bold h-12"
             />
           </div>
 
+          {/* Color Picker - Increased Touch Target */}
           <div className="space-y-3">
-            <label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Identity & Color</label>
-            <div className="flex flex-wrap gap-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Identity Color</label>
+            <div className="flex flex-wrap gap-3 justify-between">
               {COLORS.map(c => (
                 <button 
                   key={c} 
                   type="button"
                   onClick={() => setNewVision({...newVision, color: c})}
                   className={cn(
-                    "w-6 h-6 rounded-full transition-transform", 
-                    newVision.color === c ? "scale-125 ring-2 ring-offset-2 ring-primary" : "opacity-40 hover:opacity-100"
+                    "w-9 h-9 rounded-full transition-all flex-shrink-0", 
+                    newVision.color === c ? "scale-110 ring-4 ring-primary/20 border-2 border-white" : "opacity-60"
                   )}
                   style={{ backgroundColor: c }}
                 />
               ))}
             </div>
+          </div>
 
+          {/* Target Date */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Target Date</label>
+            <Input 
+              type="date"
+              value={newVision.target_date}
+              onChange={(e) => setNewVision({...newVision, target_date: e.target.value})}
+              className="text-base border-0 bg-secondary/50 focus-visible:ring-primary font-bold h-12"
+            />
+          </div>
 
-<div className="space-y-2">
-  <label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Target Completion Date</label>
-  <Input 
-    type="date"
-    value={newVision.target_date}
-    onChange={(e) => setNewVision({...newVision, target_date: e.target.value})}
-    className="border-0 bg-secondary/50 focus-visible:ring-primary font-bold"
-  />
-</div>
-
-            <div className="flex gap-2 pt-2">
+          {/* Emoji Picker - Grid for better thumb reach */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold uppercase tracking-widest opacity-60">Icon</label>
+            <div className="grid grid-cols-4 gap-3">
               {EMOJIS.map(e => (
                 <button 
                   key={e} 
                   type="button"
                   onClick={() => setNewVision({...newVision, emoji: e})}
                   className={cn(
-                    "p-2 rounded-lg bg-secondary text-lg transition-all", 
-                    newVision.emoji === e ? "bg-primary text-white scale-110 shadow-lg" : "hover:bg-secondary/80 opacity-60"
+                    "h-12 rounded-xl bg-secondary flex items-center justify-center text-xl transition-all", 
+                    newVision.emoji === e ? "bg-primary text-white shadow-md" : "active:bg-secondary/80 opacity-60"
                   )}
                 >
                   {e}
@@ -134,10 +143,10 @@ export function VisionCreator({ onCreated }: { onCreated: () => void }) {
 
           <Button 
             onClick={handleCreateVision} 
-            className="w-full font-bold uppercase tracking-widest py-6" 
+            className="w-full font-bold uppercase tracking-widest h-14 mt-4" 
             disabled={isCreating || !newVision.title}
           >
-            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cast Vision'}
+            {isCreating ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cast Vision'}
           </Button>
         </div>
       </DialogContent>
