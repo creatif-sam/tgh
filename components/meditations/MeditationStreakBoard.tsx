@@ -2,16 +2,21 @@
 
 import { useMemo, useState } from 'react'
 import { MeditationDB } from '@/lib/types'
+import StreakCalendarModal from '@/components/meditations/StreakCalendarModal'
 
 interface Meditation {
   id: string
   title: string
+  author_id: string
   created_at: string
   period: 'morning' | 'evening'
 }
 
 interface Props {
   meditations: MeditationDB[]
+
+   ownerId: string
+  accountCreatedAt: string
 }
 
 interface DayCell {
@@ -56,72 +61,67 @@ function getStreakDays(meditations: Meditation[]): DayCell[] {
 }
 
 export default function MeditationStreakBoard({
-  meditations = [],
+  meditations,
+  ownerId,
+  accountCreatedAt,
 }: Props) {
   const [activeDay, setActiveDay] = useState<string | null>(null)
+  const [showCalendar, setShowCalendar] = useState(false)
+
+  const scopedMeditations = useMemo(
+    () => meditations.filter((m) => m.author_id === ownerId),
+    [meditations, ownerId],
+  )
 
   const days = useMemo(
-    () => getStreakDays(meditations),
-    [meditations],
+    () => getStreakDays(scopedMeditations),
+    [scopedMeditations],
   )
+
+  const visibleDays = days.slice(-5)
 
   const groupedByDay = useMemo(() => {
     const map: Record<string, Meditation[]> = {}
 
-    meditations.forEach((m) => {
+    scopedMeditations.forEach((m) => {
       const key = formatDay(new Date(m.created_at))
       map[key] = map[key] ? [...map[key], m] : [m]
     })
 
-    const todayKey = formatDay(new Date())
-
-    if (!map[todayKey]) {
-      const hasTodayMeditation = meditations.some(
-        (m) =>
-          formatDay(new Date(m.created_at)) === todayKey,
-      )
-
-      if (hasTodayMeditation) {
-        map[todayKey] = []
-      }
-    }
-
     return map
-  }, [meditations])
+  }, [scopedMeditations])
 
   const streakCount = useMemo(() => {
     let count = 0
-
     for (let i = days.length - 1; i >= 0; i--) {
-      const key = formatDay(days[i].date)
-      if (groupedByDay[key]) count++
+      if (groupedByDay[formatDay(days[i].date)]) count++
       else break
     }
-
     return count
   }, [days, groupedByDay])
-
-  const perfectWeek =
-    days.length >= 7 &&
-    days.slice(-7).every(
-      (d) => groupedByDay[formatDay(d.date)],
-    )
 
   if (!days.length) return null
 
   return (
     <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium">
           Streak {streakCount}
-          {streakCount >= 3 && ' 🔥🔥🔥'}
         </div>
 
-        {perfectWeek && <div className="text-lg">👑</div>}
+      <button
+  onClick={() => setShowCalendar(true)}
+  className="px-3 py-1 text-xs font-medium rounded-md bg-violet-600 text-white hover:bg-violet-700 transition"
+>
+  View
+</button>
+
       </div>
 
+      {/* Board */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {days.map((day) => {
+        {visibleDays.map((day) => {
           const key = formatDay(day.date)
           const entries = groupedByDay[key]
           const done = Boolean(entries)
@@ -133,13 +133,10 @@ export default function MeditationStreakBoard({
             >
               <button
                 onClick={() =>
-                  setActiveDay(
-                    activeDay === key ? null : key,
-                  )
+                  setActiveDay(activeDay === key ? null : key)
                 }
-                className={`relative h-11 w-11 rounded-full overflow-hidden flex items-center justify-center text-lg transition
+                className={`relative h-11 w-11 rounded-full overflow-hidden flex items-center justify-center text-lg
                   ${!done ? 'bg-muted text-muted-foreground' : ''}
-                  ${activeDay === key ? 'scale-110' : ''}
                 `}
               >
                 {done && (
@@ -166,27 +163,12 @@ export default function MeditationStreakBoard({
               <span className="text-xs text-muted-foreground">
                 {day.label}
               </span>
-
-              {activeDay === key && entries && (
-                <div className="absolute top-13 z-20 w-40 rounded border bg-background px-2 py-1 shadow-sm text-[11px] leading-snug">
-                  <ul className="space-y-0.5">
-                    {entries.map((m) => (
-                      <li
-                        key={m.id}
-                        className="truncate"
-                        title={m.title}
-                      >
-                        • {m.title}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           )
         })}
       </div>
 
+      {/* Legend */}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
           <span className="text-base">😈</span>
@@ -208,6 +190,16 @@ export default function MeditationStreakBoard({
           <span>Evening</span>
         </div>
       </div>
+
+<StreakCalendarModal
+  open={showCalendar}
+  onClose={() => setShowCalendar(false)}
+  days={days}
+  groupedByDay={groupedByDay}
+  accountCreatedAt={accountCreatedAt}
+/>
+
+
     </div>
   )
 }

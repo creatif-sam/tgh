@@ -13,16 +13,14 @@ import PartnerMeditationBoard from '@/components/meditations/PartnerMeditationBo
 
 import type { MeditationDB } from '@/lib/types'
 
-
-// interface MeditationWithMeta extends Meditation {
-//   id: string
-//   created_at: string
-// }
-
 type ViewMode = 'list' | 'grid'
 
 export default function MeditationsPage() {
-const [meditations, setMeditations] = useState<MeditationDB[]>([])
+  const [meditations, setMeditations] = useState<MeditationDB[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
+  const [accountCreatedAt, setAccountCreatedAt] =
+  useState<string | null>(null)
+
 
   const [editing, setEditing] = useState<MeditationDB | null>(null)
   const [search, setSearch] = useState('')
@@ -34,8 +32,26 @@ const [meditations, setMeditations] = useState<MeditationDB[]>([])
     loadMeditations()
   }, [])
 
-  async function loadMeditations() {
+ async function loadMeditations() {
   const supabase = createClient()
+
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) return
+
+  setUserId(auth.user.id)
+
+  // 👇 ADD THIS BLOCK
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('created_at')
+    .eq('id', auth.user.id)
+    .single()
+
+  if (profile?.created_at) {
+    setAccountCreatedAt(profile.created_at)
+  }
+  // 👆 END ADD
+
   const { data, error } = await supabase
     .from('meditations')
     .select(`
@@ -184,11 +200,20 @@ ${m.prayer}
         </div>
       </header>
 
-      <div className="rounded-lg border bg-background p-4">
-        <MeditationStreakBoard meditations={meditations} />
-      </div>
+      {/* Streak */}
+      {userId && accountCreatedAt && (
+  <div className="rounded-lg border bg-background p-4">
+    <MeditationStreakBoard
+      meditations={meditations}
+      ownerId={userId}
+      accountCreatedAt={accountCreatedAt}
+    />
+  </div>
+)}
 
-       <PartnerMeditationBoard />
+
+      {/* Partner */}
+      <PartnerMeditationBoard />
 
       {/* Composer */}
       {editing && (

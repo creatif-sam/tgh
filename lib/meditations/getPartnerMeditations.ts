@@ -7,17 +7,26 @@ export async function getPartnerMeditations() {
   const { data: auth } = await supabase.auth.getUser()
   if (!auth.user) return null
 
-  const { data: profile } = await supabase
+  const { data: me } = await supabase
     .from('profiles')
-    .select('id, name, partner_id')
+    .select('id, name, avatar_url, partner_id')
     .eq('id', auth.user.id)
     .single()
 
-  if (!profile) return null
+  if (!me) return null
 
-  const userIds = profile.partner_id
-    ? [profile.id, profile.partner_id]
-    : [profile.id]
+  const userIds = me.partner_id
+    ? [me.id, me.partner_id]
+    : [me.id]
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, name, avatar_url')
+    .in('id', userIds)
+
+  const partner = profiles?.find(
+    (p) => p.id === me.partner_id,
+  )
 
   const { data: meditations } = await supabase
     .from('meditations')
@@ -25,8 +34,14 @@ export async function getPartnerMeditations() {
     .in('author_id', userIds)
 
   return {
-    meId: profile.id,
-    partnerId: profile.partner_id,
+    meId: me.id,
+    meName: me.name,
+    meAvatar: me.avatar_url,
+
+    partnerId: partner?.id ?? null,
+    partnerName: partner?.name ?? null,
+    partnerAvatar: partner?.avatar_url ?? null,
+
     meditations: meditations ?? [],
   }
 }
