@@ -10,6 +10,7 @@ interface WeatherData {
 
 interface HomeHeaderProps {
   userName?: string | null
+  weather ?: { temp: number; desc: string } | null
 }
 
 export default function HomeHeader({ userName }: HomeHeaderProps) {
