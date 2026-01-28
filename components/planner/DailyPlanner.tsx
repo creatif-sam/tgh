@@ -233,7 +233,7 @@ export default function DailyPlanner() {
       {/* Samsung Floating Action Button */}
       <button
         onClick={() => setTaskModalHour(new Date().getHours())}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.15)] rounded-full flex items-center justify-center hover:scale-105 transition-transform"
+        className="fixed bottom-20 right-6 w-16 h-16 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.15)] rounded-full flex items-center justify-center hover:scale-105 transition-transform"
       >
         <Plus className="w-8 h-8 text-gray-800" strokeWidth={1.5} />
       </button>
