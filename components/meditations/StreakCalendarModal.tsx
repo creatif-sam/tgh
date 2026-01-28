@@ -93,9 +93,9 @@ export default function StreakCalendarModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end">
-      <div className="bg-background w-full rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto">
+      <div className="bg-background w-full rounded-t-2xl pt-3 px-4 pb-4 max-h-[85vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <button
             disabled={!canGoPrev}
             onClick={() =>
@@ -121,31 +121,29 @@ export default function StreakCalendarModal({
             </div>
           </div>
 
-        <button
-  onClick={onClose}
-  className="p-1 rounded hover:bg-muted"
-  aria-label="Close calendar"
->
-  <X className="h-4 w-4" />
-</button>
-
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-muted"
+            aria-label="Close calendar"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Year summary */}
-        <div className="mb-3 text-center text-xs text-muted-foreground">
+        <div className="mb-2 text-center text-xs text-muted-foreground">
           {yearlyMeditationCount} days in this app this year
         </div>
 
         {/* Weekday labels */}
-       <div className="grid grid-cols-7 mb-2 text-xs text-center text-muted-foreground">
-  {WEEK_DAYS.map((d, i) => (
-    <div key={i}>{d}</div>
-  ))}
-</div>
-
+        <div className="grid grid-cols-7 mb-1 text-xs text-center text-muted-foreground">
+          {WEEK_DAYS.map((d, i) => (
+            <div key={i}>{d}</div>
+          ))}
+        </div>
 
         {/* Calendar */}
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5">
           {Array.from({ length: startOffset }).map(
             (_, i) => (
               <div key={`empty-${i}`} />
