@@ -1,16 +1,16 @@
-'use client';
+'use client'
 
-import { JSX,useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { JSX, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/ui/select'
 
 type ReadingCategory =
   | 'faith'
@@ -20,72 +20,101 @@ type ReadingCategory =
   | 'psychology'
   | 'leadership'
   | 'productivity'
-  | 'miscellaneous';
+  | 'miscellaneous'
 
 interface Props {
-  onCreated: () => void;
+  onCreated: () => void
 }
 
 export default function AddReading({ onCreated }: Props): JSX.Element {
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
-  const [source, setSource] = useState('');
+  const [title, setTitle] = useState('')
+  const [author, setAuthor] = useState('')
+  const [source, setSource] = useState('')
+  const [totalPages, setTotalPages] = useState('')
   const [visibility, setVisibility] =
-    useState<'private' | 'shared'>('private');
+    useState<'private' | 'shared'>('private')
   const [category, setCategory] =
-    useState<ReadingCategory>('self_development');
-  const [loading, setLoading] = useState(false);
+    useState<ReadingCategory>('self_development')
+  const [loading, setLoading] = useState(false)
 
   const createReading = async (): Promise<void> => {
-    if (!title.trim()) return;
+    if (!title.trim()) return
 
-    setLoading(true);
-    const supabase = createClient();
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
+    const pages = Number(totalPages)
+    if (!pages || pages <= 0) return
 
-    await supabase.from('readings').insert({
-      user_id: auth.user.id,
+    setLoading(true)
+    const supabase = createClient()
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (!user || authError) {
+      setLoading(false)
+      return
+    }
+
+    const { error } = await supabase.from('readings').insert({
+      user_id: user.id,
       title: title.trim(),
       author: author.trim() || null,
       source: source.trim() || null,
-      visibility,
       category,
-    });
+      visibility,
+      status: 'to_read',
+      total_pages: pages,
+      pages_remaining: pages,
+    })
 
-    setTitle('');
-    setAuthor('');
-    setSource('');
-    setVisibility('private');
-    setCategory('self_development');
-    setLoading(false);
-    onCreated();
-  };
+    if (error) {
+      console.error(error)
+      setLoading(false)
+      return
+    }
+
+    setTitle('')
+    setAuthor('')
+    setSource('')
+    setTotalPages('')
+    setVisibility('private')
+    setCategory('self_development')
+    setLoading(false)
+    onCreated()
+  }
 
   return (
     <div className="rounded-xl border p-4 space-y-3">
       <Input
         placeholder="Book or article title"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={e => setTitle(e.target.value)}
       />
 
       <Input
-        placeholder="Author (optional)"
+        placeholder="Author optional"
         value={author}
-        onChange={(e) => setAuthor(e.target.value)}
+        onChange={e => setAuthor(e.target.value)}
       />
 
       <Input
-        placeholder="Source (book, article, Bible, etc)"
+        placeholder="Source book article Bible etc"
         value={source}
-        onChange={(e) => setSource(e.target.value)}
+        onChange={e => setSource(e.target.value)}
       />
 
-      {/* Category */}
+      <Input
+        type="number"
+        min="1"
+        placeholder="Total pages"
+        value={totalPages}
+        onChange={e => setTotalPages(e.target.value)}
+      />
+
       <Select
         value={category}
-        onValueChange={(v) =>
+        onValueChange={v =>
           setCategory(v as ReadingCategory)
         }
       >
@@ -94,24 +123,19 @@ export default function AddReading({ onCreated }: Props): JSX.Element {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="faith">Faith</SelectItem>
-          <SelectItem value="self_development">
-            Self development
-          </SelectItem>
+          <SelectItem value="self_development">Self development</SelectItem>
           <SelectItem value="skill">Skill</SelectItem>
           <SelectItem value="philosophy">Philosophy</SelectItem>
           <SelectItem value="psychology">Psychology</SelectItem>
           <SelectItem value="leadership">Leadership</SelectItem>
           <SelectItem value="productivity">Productivity</SelectItem>
-          <SelectItem value="miscellaneous">
-            Miscellaneous
-          </SelectItem>
+          <SelectItem value="miscellaneous">Miscellaneous</SelectItem>
         </SelectContent>
       </Select>
 
-      {/* Visibility */}
       <Select
         value={visibility}
-        onValueChange={(v) =>
+        onValueChange={v =>
           setVisibility(v as 'private' | 'shared')
         }
       >
@@ -126,11 +150,11 @@ export default function AddReading({ onCreated }: Props): JSX.Element {
 
       <Button
         size="sm"
-        disabled={loading || !title.trim()}
+        disabled={loading || !title.trim() || !totalPages}
         onClick={createReading}
       >
         Add Reading
       </Button>
     </div>
-  );
+  )
 }

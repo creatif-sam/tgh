@@ -49,7 +49,7 @@ export default function Home() {
       <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
         <div className="text-center max-w-lg">
           <h2 className="text-4xl font-extrabold text-gray-800 mb-4">
-            Welcome to TogetherUS
+            Welcome to SamUr
           </h2>
           <p className="text-lg text-gray-600 mb-6">
             Collaborate, plan, and achieve your goals with ease. Join us today and make your dreams a reality.
