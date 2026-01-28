@@ -58,21 +58,26 @@ export function NewGoalForm({
   onCreated,
   categories,
   visions,
+  initialVisionId, // 1. Add this here
 }: {
   onCancel: () => void
-  onCreated: (goal: Goal) => void
+  onCreated: (goal: any) => void
   categories: GoalCategory[]
   visions: Vision[]
+  initialVisionId?: string // 2. And here
 }) {
 
   const supabase = createClient()
+
+  // 3. Use initialVisionId as the default state value
+  const [visionId, setVisionId] = useState<string>(initialVisionId || 'none')
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [deliverable, setDeliverable] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [visionId, setVisionId] = useState<string>('none') 
+  // const [visionId, setVisionId] = useState<string>('none') 
 
   const [goalType, setGoalType] =
     useState<'single' | 'combined'>('single')
