@@ -109,7 +109,7 @@ export function VisionListView({
             <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase italic bg-secondary/50 px-2 py-1 rounded">
                 <Clock className="w-3 h-3" />
-                <span>{v.target_date ? new Date(v.target_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2d' }) : 'No End'}</span>
+                <span>{v.target_date ? new Date(v.target_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' }) : 'No End'}</span>
               </div>
               
               {!v.is_archived && (
