@@ -19,6 +19,7 @@ export function TaskModal({
 }) {
   const [text, setText] = useState('')
   const [end, setEnd] = useState(hour + 1)
+  const [goalId, setGoalId] = useState<string | null>(null)
   const [recurring, setRecurring] =
     useState<PlannerTask['recurring'] | null>(null)
 
@@ -26,10 +27,12 @@ export function TaskModal({
     if (existingTask) {
       setText(existingTask.text)
       setEnd(parseInt(existingTask.end.split(':')[0]))
+      setGoalId(existingTask.goal_id ?? null)
       setRecurring(existingTask.recurring ?? null)
     } else {
       setText('')
       setEnd(hour + 1)
+      setGoalId(null)
       setRecurring(null)
     }
   }, [existingTask, hour])
@@ -41,35 +44,40 @@ export function TaskModal({
       start: `${hour}:00`,
       end: `${end}:00`,
       completed: existingTask?.completed ?? false,
+      goal_id: goalId ?? undefined,
       recurring: recurring ?? undefined,
     })
   }
 
   return (
     <Modal onClose={onClose}>
-      <h3 className="font-semibold mb-3">
-        {existingTask ? 'Edit Task' : 'New Task'}
-      </h3>
+      <div className="space-y-5">
+        <h3 className="font-semibold">
+          {existingTask ? 'Edit Task' : 'New Task'}
+        </h3>
 
-      <TaskBasics
-        text={text}
-        end={end}
-        hour={hour}
-        onTextChange={setText}
-        onEndChange={setEnd}
-      />
+        <TaskBasics
+          text={text}
+          end={end}
+          hour={hour}
+          goalId={goalId}
+          onTextChange={setText}
+          onEndChange={setEnd}
+          onGoalChange={setGoalId}
+        />
 
-      <TaskRecurrence
-        value={recurring}
-        onChange={setRecurring}
-      />
+        <TaskRecurrence
+          value={recurring}
+          onChange={setRecurring}
+        />
 
-      <button
-        onClick={handleSave}
-        className="mt-4 w-full bg-violet-600 text-white rounded-lg py-2"
-      >
-        Save1
-      </button>
+        <button
+          onClick={handleSave}
+          className="w-full bg-violet-600 text-white rounded-lg py-2"
+        >
+          Save
+        </button>
+      </div>
     </Modal>
   )
 }

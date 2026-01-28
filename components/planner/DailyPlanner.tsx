@@ -21,6 +21,7 @@ export interface PlannerTask {
   start: string
   end: string
   completed: boolean
+  goal_id?: string
   recurring?: {
     interval: number
     unit: 'day' | 'week'
@@ -48,6 +49,8 @@ export default function DailyPlanner() {
   const [taskModalHour, setTaskModalHour] = useState<number | null>(null)
   const [editingTask, setEditingTask] = useState<PlannerTask | null>(null)
   const [notifiedTasks, setNotifiedTasks] = useState<Set<string>>(new Set())
+  const [goalsMap, setGoalsMap] = useState<Record<string, string>>({})
+
 
   const dateKey = selectedDate.toISOString().split('T')[0]
 
@@ -98,6 +101,31 @@ export default function DailyPlanner() {
     loadDay()
   }, [dateKey])
 
+   useEffect(() => {
+    loadGoals()
+  }, [])
+  
+
+ async function loadGoals() {
+  const { data: auth } = await supabase.auth.getUser()
+  if (!auth.user) return
+
+  const { data: goals } = await supabase
+    .from('goals')
+    .select('id,title')
+    .eq('owner_id', auth.user.id)
+
+  if (goals) {
+    const map: Record<string, string> = {}
+    goals.forEach((g) => {
+      map[g.id] = g.title
+    })
+    setGoalsMap(map)
+  }
+}
+
+
+
   /* ---------- data loading ---------- */
 
   async function loadDay() {
@@ -111,6 +139,9 @@ export default function DailyPlanner() {
       .eq('day', dateKey)
       .eq('user_id', auth.user.id)
       .maybeSingle()
+
+// Load goals map
+    
 
     // Load history for recurrence rules
     const { data: history } = await supabase
@@ -242,7 +273,7 @@ function notifyUpcoming(task: PlannerTask) {
 
     {playUpcomingSound && (
   <TimedSound
-    src="/sounds/upcoming.mp3"
+    src="/sounds/upcomingNOO.mp3"
     durationMs={5000}
     onStop={() => setPlayUpcomingSound(false)}
   />
@@ -309,12 +340,24 @@ function notifyUpcoming(task: PlannerTask) {
                   t
                 )}`}
               >
-                <div>
-                  {t.text}
-                  <div className="text-xs opacity-80">
-                    {t.start} to {t.end}
-                  </div>
-                </div>
+               <div>
+  <div className="font-medium">{t.text}</div>
+
+  {t.goal_id && goalsMap[t.goal_id] ? (
+    <div className="text-xs text-violet-200">
+      🎯 Goal: {goalsMap[t.goal_id]}
+    </div>
+  ) : (
+    <div className="text-xs opacity-40">
+      No goal linked
+    </div>
+  )}
+
+  <div className="text-xs opacity-80">
+    {t.start} to {t.end}
+  </div>
+</div>
+
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => setEditingTask(t)}>

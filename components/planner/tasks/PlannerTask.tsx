@@ -4,6 +4,7 @@ export interface PlannerTask {
   start: string
   end: string
   completed: boolean
+  goal_id?: string
   recurring?: {
     interval: number
     unit: 'day' | 'week'
