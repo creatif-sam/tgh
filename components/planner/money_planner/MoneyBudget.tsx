@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import BudgetEditModal from './BudgetEditModal'
 import {
   PieChart,
   Pie,
@@ -31,10 +32,17 @@ export default function MoneyBudget() {
 
   const [totalBudget, setTotalBudget] = useState<number | null>(null)
   const [totalInput, setTotalInput] = useState('')
-  const [editingTotal, setEditingTotal] = useState(false)
+
+
+
+const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+const [budgetModalTitle, setBudgetModalTitle] = useState('')
+const [budgetTarget, setBudgetTarget] =
+  useState<'total' | string | null>(null)
+
 
   const [categories, setCategories] = useState<CategoryBudget[]>([])
-  const [editingCategory, setEditingCategory] = useState<string | null>(null)
+  
   const [categoryInput, setCategoryInput] = useState('')
 
   const periodStart =
@@ -146,7 +154,6 @@ export default function MoneyBudget() {
     })
 
     setTotalBudget(Number(totalInput))
-    setEditingTotal(false)
     setTotalInput('')
   }
 
@@ -279,24 +286,18 @@ export default function MoneyBudget() {
         </div>
       </div>
 
-      {editingTotal ? (
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            placeholder="Set total budget"
-            value={totalInput}
-            onChange={e => setTotalInput(e.target.value)}
-          />
-          <Button onClick={saveTotalBudget}>Save</Button>
-        </div>
-      ) : (
-        <Button
-          variant="outline"
-          onClick={() => setEditingTotal(true)}
-        >
-          Set total budget
-        </Button>
-      )}
+   <Button
+  variant="outline"
+  onClick={() => {
+    setBudgetModalTitle('Set total budget')
+    setBudgetTarget('total')
+    setTotalInput(totalBudget?.toString() ?? '')
+    setBudgetModalOpen(true)
+  }}
+>
+  Set total budget
+</Button>
+
 
       {/* CATEGORY ROWS */}
       <div className="space-y-3">
@@ -319,39 +320,19 @@ export default function MoneyBudget() {
                   <span className="text-sm">{c.name}</span>
                 </div>
 
-                {editingCategory === c.id ? (
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      className="w-20"
-                      value={categoryInput}
-                      onChange={e =>
-                        setCategoryInput(e.target.value)
-                      }
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        saveCategoryBudget(c.id)
-                      }
-                    >
-                      Save
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingCategory(c.id)
-                      setCategoryInput(
-                        c.budget.toString()
-                      )
-                    }}
-                  >
-                    Set
-                  </Button>
-                )}
+               <Button
+  size="sm"
+  variant="outline"
+  onClick={() => {
+    setBudgetModalTitle(`Set ${c.name} budget`)
+    setBudgetTarget(c.id)
+    setCategoryInput(c.budget.toString())
+    setBudgetModalOpen(true)
+  }}
+>
+  Set
+</Button>
+
               </div>
 
               <div className="flex justify-between text-xs">
@@ -385,6 +366,34 @@ export default function MoneyBudget() {
           )
         })}
       </div>
+
+
+        {/* BUDGET MODAL */}
+        <BudgetEditModal
+  open={budgetModalOpen}
+  title={budgetModalTitle}
+  amount={
+    budgetTarget === 'total'
+      ? totalInput
+      : categoryInput
+  }
+  onChange={v =>
+    budgetTarget === 'total'
+      ? setTotalInput(v)
+      : setCategoryInput(v)
+  }
+  onSave={async () => {
+    if (budgetTarget === 'total') {
+      await saveTotalBudget()
+    } else if (budgetTarget) {
+      await saveCategoryBudget(budgetTarget)
+    }
+    setBudgetModalOpen(false)
+  }}
+  onClose={() => setBudgetModalOpen(false)}
+/>
+
+
     </div>
   )
 }
