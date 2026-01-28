@@ -22,12 +22,34 @@ export interface NotificationAction {
   icon?: string
 }
 
-/* VAPID must be configured ONCE */
-webPush.setVapidDetails(
-  'mailto:dev@gen116.com',
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+/* ---------------------------
+   Lazy VAPID initialization
+---------------------------- */
+
+let vapidConfigured = false
+
+function ensureVapidConfigured() {
+  if (vapidConfigured) return
+
+  const publicKey = process.env.VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+
+  if (!publicKey || !privateKey) {
+    throw new Error('VAPID keys are not configured')
+  }
+
+  webPush.setVapidDetails(
+    'mailto:dev@gen116.com',
+    publicKey,
+    privateKey
+  )
+
+  vapidConfigured = true
+}
+
+/* ---------------------------
+   Push Notification Service
+---------------------------- */
 
 export class PushNotificationService {
   private async getSupabase() {
@@ -94,7 +116,6 @@ export class PushNotificationService {
           .update({ sent_at: new Date().toISOString() })
           .eq('id', notification.id)
       }
-
     } catch (err) {
       console.error('Push notification error', err)
     }
@@ -110,7 +131,13 @@ export class PushNotificationService {
     )
   }
 
-  private async sendWebPush(subscription: any, payload: PushNotificationPayload, notificationId: string) {
+  private async sendWebPush(
+    subscription: any,
+    payload: PushNotificationPayload,
+    notificationId: string
+  ) {
+    ensureVapidConfigured()
+
     const pushSubscription = {
       endpoint: subscription.endpoint,
       keys: {
@@ -150,8 +177,7 @@ export class PushNotificationService {
     }
   }
 
-
-    async getUserNotifications(
+  async getUserNotifications(
     userId: string,
     limit = 50,
     offset = 0
@@ -165,15 +191,11 @@ export class PushNotificationService {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    if (error) {
-      throw error
-    }
-
+    if (error) throw error
     return data
   }
 
-
-    async markAsRead(notificationId: string, userId: string) {
+  async markAsRead(notificationId: string, userId: string) {
     const supabase = await this.getSupabase()
 
     const { error } = await supabase
@@ -182,9 +204,7 @@ export class PushNotificationService {
       .eq('id', notificationId)
       .eq('user_id', userId)
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
   }
 
   async markAllAsRead(userId: string) {
@@ -196,11 +216,8 @@ export class PushNotificationService {
       .eq('user_id', userId)
       .eq('read', false)
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
   }
-
 
   private getPreferenceKey(type: string) {
     switch (type) {
