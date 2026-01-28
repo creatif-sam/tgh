@@ -154,11 +154,18 @@ export default function DailyPlanner() {
         </div>
 
 
-        {/* Day Summary & Export Toolset */}
-<div className="flex items-center gap-3 mb-8 overflow-x-auto no-scrollbar">
-  <DaySummary tasks={tasks} /> <br />
-  <div className="h-4 w-[1px] bg-slate-200 ml-1" />
-  <FreeTimeExportButton tasks={tasks} date={selectedDate} />
+ {/* Summary & Export Row */}
+{/* Summary & Action Section */}
+<div className="space-y-3 mb-8">
+  {/* The Summary Card */}
+  <div className="bg-[#F8F9FA] rounded-[24px] p-5 border border-slate-100/50">
+    <DaySummary tasks={tasks} />
+  </div>
+  
+  {/* The Export Action - Now Underneath */}
+  <div className="flex justify-start px-1">
+    <FreeTimeExportButton tasks={tasks} date={selectedDate} />
+  </div>
 </div>
 
         {/* Task List Section */}
