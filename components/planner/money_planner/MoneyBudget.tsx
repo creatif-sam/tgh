@@ -97,7 +97,7 @@ export default function MoneyBudget() {
     }
   })
 )
-
+  }
 
   async function loadSpending() {
     const {
@@ -387,5 +387,4 @@ export default function MoneyBudget() {
       </div>
     </div>
   )
-}
 }
