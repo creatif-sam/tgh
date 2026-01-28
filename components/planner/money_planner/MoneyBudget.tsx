@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   PieChart,
@@ -26,10 +26,12 @@ export default function MoneyBudget() {
   const now = new Date()
 
   const [scope, setScope] = useState<Scope>('month')
+  const [month, setMonth] = useState(now.getMonth())
+  const [year, setYear] = useState(now.getFullYear())
+
   const [totalBudget, setTotalBudget] = useState<number | null>(null)
-  const [spentTotal, setSpentTotal] = useState(0)
-  const [editTotal, setEditTotal] = useState(false)
   const [totalInput, setTotalInput] = useState('')
+  const [editingTotal, setEditingTotal] = useState(false)
 
   const [categories, setCategories] = useState<CategoryBudget[]>([])
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
@@ -37,7 +39,7 @@ export default function MoneyBudget() {
 
   const periodStart =
     scope === 'month'
-      ? new Date(now.getFullYear(), now.getMonth(), 1)
+      ? new Date(year, month, 1)
       : new Date(
           now.getFullYear(),
           now.getMonth(),
@@ -46,22 +48,21 @@ export default function MoneyBudget() {
 
   const periodEnd =
     scope === 'month'
-      ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      ? new Date(year, month + 1, 1)
       : new Date(periodStart.getTime() + 7 * 86400000)
 
   useEffect(() => {
-    loadTotalBudget()
-    loadCategoryBudgets()
+    loadBudgets()
     loadSpending()
-  }, [scope])
+  }, [scope, month, year])
 
-  async function loadTotalBudget() {
+  async function loadBudgets() {
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
+    const { data: total } = await supabase
       .from('money_budgets')
       .select('amount')
       .eq('user_id', user.id)
@@ -69,7 +70,26 @@ export default function MoneyBudget() {
       .eq('period_start', periodStart.toISOString().slice(0, 10))
       .single()
 
-    setTotalBudget(data?.amount ?? null)
+    setTotalBudget(total?.amount ?? null)
+
+    const { data: cats } = await supabase
+      .from('money_category_budgets')
+      .select(
+        'amount, category_id, money_categories(id, name, icon)'
+      )
+      .eq('user_id', user.id)
+      .eq('scope', scope)
+      .eq('period_start', periodStart.toISOString().slice(0, 10))
+
+    setCategories(
+      (cats ?? []).map(c => ({
+        id: c.money_categories.id,
+        name: c.money_categories.name,
+        icon: c.money_categories.icon,
+        budget: c.amount,
+        spent: 0,
+      }))
+    )
   }
 
   async function loadSpending() {
@@ -87,17 +107,13 @@ export default function MoneyBudget() {
       .lt('entry_date', periodEnd.toISOString())
 
     const totals: Record<string, number> = {}
-    let total = 0
 
     data?.forEach(e => {
-      total += e.amount
       if (e.category_id) {
         totals[e.category_id] =
           (totals[e.category_id] ?? 0) + e.amount
       }
     })
-
-    setSpentTotal(total)
 
     setCategories(prev =>
       prev.map(c => ({
@@ -105,33 +121,6 @@ export default function MoneyBudget() {
         spent: totals[c.id] ?? 0,
       }))
     )
-  }
-
-  async function loadCategoryBudgets() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('money_category_budgets')
-      .select(
-        'amount, category_id, money_categories(id, name, icon)'
-      )
-      .eq('user_id', user.id)
-      .eq('scope', scope)
-      .eq('period_start', periodStart.toISOString().slice(0, 10))
-
-    const rows =
-      data?.map(d => ({
-        id: d.money_categories.id,
-        name: d.money_categories.name,
-        icon: d.money_categories.icon,
-        budget: d.amount,
-        spent: 0,
-      })) ?? []
-
-    setCategories(rows)
   }
 
   async function saveTotalBudget() {
@@ -150,7 +139,8 @@ export default function MoneyBudget() {
     })
 
     setTotalBudget(Number(totalInput))
-    setEditTotal(false)
+    setEditingTotal(false)
+    setTotalInput('')
   }
 
   async function saveCategoryBudget(categoryId: string) {
@@ -181,19 +171,20 @@ export default function MoneyBudget() {
     setCategoryInput('')
   }
 
-  const remaining = totalBudget
-    ? Math.max(0, totalBudget - spentTotal)
-    : 0
+  const spentTotal = categories.reduce(
+    (a, b) => a + b.spent,
+    0
+  )
+
+  const remaining =
+    totalBudget !== null
+      ? Math.max(0, totalBudget - spentTotal)
+      : 0
 
   const percent =
     totalBudget && totalBudget > 0
-      ? Math.max(0, (remaining / totalBudget) * 100)
+      ? Math.round((remaining / totalBudget) * 100)
       : 100
-
-  const donutData = [
-    { value: percent },
-    { value: 100 - percent },
-  ]
 
   return (
     <div className="space-y-4 pb-24">
@@ -215,12 +206,49 @@ export default function MoneyBudget() {
         ))}
       </div>
 
+      {/* MONTH YEAR */}
+      {scope === 'month' && (
+        <div className="flex gap-2">
+          <select
+            value={month}
+            onChange={e => setMonth(Number(e.target.value))}
+            className="flex-1 border rounded-lg px-2 py-1"
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <option key={i} value={i}>
+                {new Date(0, i).toLocaleString(undefined, {
+                  month: 'long',
+                })}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={year}
+            onChange={e => setYear(Number(e.target.value))}
+            className="flex-1 border rounded-lg px-2 py-1"
+          >
+            {Array.from({ length: 5 }).map((_, i) => {
+              const y = now.getFullYear() - i
+              return (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              )
+            })}
+          </select>
+        </div>
+      )}
+
       {/* DONUT */}
       <div className="h-48">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={donutData}
+              data={[
+                { value: percent },
+                { value: 100 - percent },
+              ]}
               dataKey="value"
               innerRadius={70}
               outerRadius={90}
@@ -234,17 +262,17 @@ export default function MoneyBudget() {
         </ResponsiveContainer>
       </div>
 
-      {/* TOTAL BUDGET */}
+      {/* TOTAL */}
       <div className="text-center space-y-1">
         <div className="text-sm">
-          Remaining {Math.round(percent)}%
+          Remaining {percent}%
         </div>
         <div className="text-xs text-muted-foreground">
           Budget {totalBudget ?? 0} | Spent {spentTotal}
         </div>
       </div>
 
-      {editTotal ? (
+      {editingTotal ? (
         <div className="flex gap-2">
           <Input
             type="number"
@@ -257,19 +285,19 @@ export default function MoneyBudget() {
       ) : (
         <Button
           variant="outline"
-          onClick={() => setEditTotal(true)}
+          onClick={() => setEditingTotal(true)}
         >
           Set total budget
         </Button>
       )}
 
-      {/* CATEGORY BUDGETS */}
+      {/* CATEGORY ROWS */}
       <div className="space-y-3">
         {categories.map(c => {
           const ratio =
             c.budget > 0 ? c.spent / c.budget : 0
 
-          const color =
+          const barColor =
             ratio >= 1
               ? 'bg-red-500'
               : ratio >= 0.8
@@ -279,7 +307,7 @@ export default function MoneyBudget() {
           return (
             <div key={c.id} className="space-y-1">
               <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2 items-center">
                   <span>{c.icon}</span>
                   <span className="text-sm">{c.name}</span>
                 </div>
@@ -309,7 +337,9 @@ export default function MoneyBudget() {
                     variant="outline"
                     onClick={() => {
                       setEditingCategory(c.id)
-                      setCategoryInput(c.budget.toString())
+                      setCategoryInput(
+                        c.budget.toString()
+                      )
                     }}
                   >
                     Set
@@ -317,7 +347,7 @@ export default function MoneyBudget() {
                 )}
               </div>
 
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-xs">
                 <span>
                   {c.spent} / {c.budget}
                 </span>
@@ -333,11 +363,14 @@ export default function MoneyBudget() {
                 )}
               </div>
 
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-2 bg-muted rounded-full">
                 <div
-                  className={`h-full ${color}`}
+                  className={`h-full ${barColor}`}
                   style={{
-                    width: `${Math.min(100, ratio * 100)}%`,
+                    width: `${Math.min(
+                      100,
+                      ratio * 100
+                    )}%`,
                   }}
                 />
               </div>
