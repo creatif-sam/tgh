@@ -30,10 +30,10 @@ export function VisionListView({
     return visions.map(vision => {
       const visionGoals = goals.filter(g => g.vision_id === vision.id)
       const totalGoals = visionGoals.length
-      const completedGoals = visionGoals.filter(g => g.status === 'done').length
       const avgProgress = totalGoals > 0 
         ? Math.round(visionGoals.reduce((acc, curr) => acc + (curr.progress || 0), 0) / totalGoals)
         : 0
+      const completedGoals = visionGoals.filter(g => g.status === 'done').length
       return { ...vision, totalGoals, completedGoals, avgProgress }
     })
   }, [goals, visions])
@@ -44,23 +44,24 @@ export function VisionListView({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    // Grid: 1 column on mobile, 2 on tablet, 3 on desktop
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 px-2 md:px-0">
       {visionStats.map((v) => (
         <Card 
           key={v.id} 
           className={cn(
-            "relative overflow-hidden border-t-4 shadow-sm group transition-all duration-300",
+            "relative overflow-hidden border-t-4 shadow-sm transition-all duration-300",
             v.is_archived ? "opacity-60 grayscale-[0.5] bg-secondary/10" : "opacity-100"
           )} 
           style={{ borderTopColor: v.is_archived ? '#94a3b8' : v.color }}
         >
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <div className="text-3xl mb-2">{v.emoji}</div>
+          <CardHeader className="p-4 pb-2">
+            <div className="flex justify-between items-center mb-1">
+              <div className="text-3xl">{v.emoji}</div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                  <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2">
+                    <MoreVertical className="w-5 h-5 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="font-bold uppercase text-[10px]">
@@ -70,54 +71,57 @@ export function VisionListView({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <CardTitle className="text-xl font-black uppercase tracking-tighter italic leading-tight">
+            <CardTitle className="text-lg md:text-xl font-black uppercase tracking-tighter italic leading-none">
               {v.title}
             </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="p-4 pt-2 space-y-4">
             {v.description && (
-              <div className="relative p-3 bg-muted/30 rounded border-l-2 border-primary/20 italic text-[11px] text-muted-foreground">
-                <ScrollText className="w-3 h-3 absolute -top-1.5 -right-1.5 text-primary/40" />
+              <div className="relative p-3 bg-muted/40 rounded-lg border-l-2 border-primary/20 italic text-[11px] leading-relaxed text-muted-foreground">
+                <ScrollText className="w-3 h-3 absolute -top-1 -right-1 text-primary/40" />
                 "{v.description}"
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[9px] font-black uppercase text-muted-foreground">
+            {/* Progress Section */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                 <span>Realization</span>
-                <span>{v.avgProgress}%</span>
+                <span style={{ color: v.color }}>{v.avgProgress}%</span>
               </div>
-              <Progress value={v.avgProgress} className="h-1.5" style={{ '--progress-foreground': v.color } as any} />
+              <Progress value={v.avgProgress} className="h-2 bg-secondary" style={{ '--progress-foreground': v.color } as any} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-y border-dashed py-3">
-              <div className="space-y-0.5">
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 gap-4 border-y border-dashed py-3 border-muted">
+              <div className="space-y-1">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1"><Target className="w-3 h-3" /> Scope</p>
                 <p className="font-black text-xs uppercase italic">{v.totalGoals} Goals</p>
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 <p className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Hits</p>
                 <p className="font-black text-xs uppercase italic">{v.completedGoals} Done</p>
               </div>
             </div>
 
+            {/* Bottom Actions Row */}
             <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase italic">
+              <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase italic bg-secondary/50 px-2 py-1 rounded">
                 <Clock className="w-3 h-3" />
-                <span>{v.target_date ? new Date(v.target_date).toLocaleDateString() : 'No End'}</span>
+                <span>{v.target_date ? new Date(v.target_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2d' }) : 'No End'}</span>
               </div>
               
               {!v.is_archived && (
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button size="sm" variant="secondary" className="h-7 text-[10px] font-black uppercase italic bg-primary/10 text-primary border border-primary/20">
-                      <Plus className="w-3 h-3 mr-1" /> Add Goal
+                    <Button size="sm" variant="secondary" className="h-9 px-4 text-[10px] font-black uppercase italic bg-primary text-primary-foreground hover:bg-primary/90 rounded-full shadow-sm active:scale-95 transition-transform">
+                      <Plus className="w-3 h-3 mr-1 stroke-[3px]" /> Add Goal
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
                     <DialogHeader>
-                      <DialogTitle className="font-black uppercase italic tracking-tighter">New Goal: {v.title}</DialogTitle>
+                      <DialogTitle className="font-black uppercase italic tracking-tighter text-left">New Goal: {v.title}</DialogTitle>
                     </DialogHeader>
                     <NewGoalForm 
                       categories={categories} 
