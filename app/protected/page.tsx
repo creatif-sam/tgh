@@ -44,28 +44,10 @@ export default function HomePage() {
 
   useEffect(() => {
     loadHomeData()
-    fetchWeather()
+  
   }, [])
 
-  async function fetchWeather() {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const { latitude, longitude } = position.coords
-      try {
-        const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`
-        )
-        const data = await res.json()
-        setWeather({
-          temp: Math.round(data.current_weather.temperature),
-          desc: "Local Sky" 
-        })
-      } catch (err) {
-        console.error("Weather fetch failed", err)
-      }
-    })
-  }
-
+  
   async function loadHomeData() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return
@@ -113,20 +95,7 @@ export default function HomePage() {
     <div className="p-4 pb-24 space-y-6 max-w-3xl mx-auto">
       
       {/* 1. Integrated Header & Weather Pill */}
-      <div className="flex justify-between items-center bg-white/40 backdrop-blur-xl p-5 rounded-[32px] border border-white/60 shadow-xl shadow-slate-200/50">
-        <HomeHeader userName={userName} />
-        {weather && (
-          <div className="flex items-center gap-3 bg-violet-600 text-white pl-2 pr-5 py-2 rounded-2xl shadow-lg shadow-violet-200">
-            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-              <CloudSun size={24} className="text-white" />
-            </div>
-            <div className="flex flex-col text-right">
-              <span className="text-xl font-black leading-none">{weather.temp}°C</span>
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Local</span>
-            </div>
-          </div>
-        )}
-      </div>
+     <HomeHeader userName={userName} weather={weather} />
 
       {/* 2. Daily Verse Overlay (Now independent from Modal) */}
       <DailyVerseCard />
