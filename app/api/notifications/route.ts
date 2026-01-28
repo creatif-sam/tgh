@@ -1,74 +1,77 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { pushNotificationService } from '@/lib/push-notifications';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { pushNotificationService } from '@/lib/push-notifications'
+import { createClient } from '@/lib/supabase/server'
 
+/* SEND notification */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json();
-    const { userId, type, title, body: notificationBody, data, url } = body;
+    const payload = await request.json()
+    const { type, title, body, data, url } = payload
 
-    if (!userId || !type || !title || !notificationBody) {
+    if (!type || !title || !body) {
       return NextResponse.json(
-        { error: 'Missing required fields: userId, type, title, body' },
+        { error: 'Missing required fields: type, title, body' },
         { status: 400 }
-      );
+      )
     }
 
-    // Validate notification type
-    const validTypes = ['message', 'planner_reminder', 'goal_deadline', 'goal_progress', 'post', 'system'];
+    const validTypes = [
+      'message',
+      'planner_reminder',
+      'goal_deadline',
+      'goal_progress',
+      'post',
+      'system'
+    ]
+
     if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { error: 'Invalid notification type' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid notification type' }, { status: 400 })
     }
 
-    await pushNotificationService.sendToUser(userId, {
-      title,
-      body: notificationBody,
-      data,
-      url,
-    }, type as any);
+    /* always notify the authenticated user */
+    await pushNotificationService.sendToUser(
+      user.id,
+      { title, body, data, url },
+      type
+    )
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error sending notification:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('POST /api/notifications failed', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// GET endpoint to retrieve user notifications
+/* FETCH notifications */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const { searchParams } = new URL(request.url)
+    const limit = Number(searchParams.get('limit') ?? 50)
+    const offset = Number(searchParams.get('offset') ?? 0)
 
-    const notifications = await pushNotificationService.getUserNotifications(user.id, limit, offset);
+    const notifications = await pushNotificationService.getUserNotifications(
+      user.id,
+      limit,
+      offset
+    )
 
-    return NextResponse.json({ notifications });
-  } catch (error) {
-    console.error('Error fetching notifications:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ notifications })
+  } catch (err) {
+    console.error('GET /api/notifications failed', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

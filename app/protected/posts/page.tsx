@@ -25,11 +25,9 @@ export default function PostsPage() {
   const [posts, setPosts] = useState<PostWithProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [showComposer, setShowComposer] = useState(false)
-  const [showMeditationComposer, setShowMeditationComposer] =
-    useState(false)
+  const [showMeditationComposer, setShowMeditationComposer] = useState(false)
   const [content, setContent] = useState('')
-  const [visibility, setVisibility] =
-    useState<'private' | 'shared'>('shared')
+  const [visibility, setVisibility] = useState<'private' | 'shared'>('shared')
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -64,59 +62,39 @@ export default function PostsPage() {
 
   async function createPost() {
     if (!content.trim()) return
-    const supabase = createClient()
-    const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) return
 
-    let partnerId = null
-    if (visibility === 'shared') {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('partner_id')
-        .eq('id', auth.user.id)
-        .single()
-      partnerId = profile?.partner_id
-    }
-
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         content,
         visibility,
-        author_id: auth.user.id,
-        partner_id: partnerId,
-      })
-      .select(`
-        *,
-        profiles:author_id (name, avatar_url)
-      `)
-      .single()
+      }),
+    })
 
-    if (error) {
-      console.error(error)
+    if (!res.ok) {
+      console.error('Failed to create post')
       return
     }
 
-    if (data) {
-      setPosts([data, ...posts])
-      setContent('')
-      setShowComposer(false)
-    }
+    setContent('')
+    setShowComposer(false)
+    await loadPosts()
   }
 
   async function updatePost(id: string, updated: string) {
     const supabase = createClient()
     await supabase.from('posts').update({ content: updated }).eq('id', id)
 
-    setPosts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, content: updated } : p)),
+    setPosts(prev =>
+      prev.map(p => (p.id === id ? { ...p, content: updated } : p)),
     )
   }
 
   async function deletePost(id: string) {
     const supabase = createClient()
     await supabase.from('posts').delete().eq('id', id)
-    setPosts((prev) => prev.filter((p) => p.id !== id))
+    setPosts(prev => prev.filter(p => p.id !== id))
   }
 
   if (loading) {
@@ -129,54 +107,48 @@ export default function PostsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-   <header className="space-y-3">
-  {/* Top row */}
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-    <h1 className="text-xl font-semibold tracking-tight">
-      Posts
-    </h1>
+      <header className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">
+            Posts
+          </h1>
 
-    <div className="flex items-center gap-2 justify-end">
-      {/* Meditation */}
-      <MeditationButton
-        onOpen={() => setShowMeditationComposer(true)}
-        className="sm:hidden"
-      />
+          <div className="flex items-center gap-2 justify-end">
+            <MeditationButton
+              onOpen={() => setShowMeditationComposer(true)}
+              className="sm:hidden"
+            />
 
-      <Button
-        size="icon"
-        variant="outline"
-        onClick={() => setShowComposer(!showComposer)}
-        className="sm:hidden"
-      >
-        <Plus className="w-5 h-5" />
-      </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => setShowComposer(!showComposer)}
+              className="sm:hidden"
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
 
-      {/* Desktop actions */}
-      <div className="hidden sm:flex items-center gap-2">
-        <MeditationButton
-          onOpen={() => setShowMeditationComposer(true)}
-        />
+            <div className="hidden sm:flex items-center gap-2">
+              <MeditationButton
+                onOpen={() => setShowMeditationComposer(true)}
+              />
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setShowComposer(!showComposer)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Write
-        </Button>
-      </div>
-    </div>
-  </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowComposer(!showComposer)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Write
+              </Button>
+            </div>
+          </div>
+        </div>
 
-  {/* Feed switch row */}
-  <div className="flex justify-end sm:justify-start">
-    <FeedSwitch />
-  </div>
-</header>
-
-
+        <div className="flex justify-end sm:justify-start">
+          <FeedSwitch />
+        </div>
+      </header>
 
       {showComposer && (
         <Card className="border-muted">
@@ -185,15 +157,13 @@ export default function PostsPage() {
               placeholder="Write thoughtfully"
               className="min-h-[120px]"
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={e => setContent(e.target.value)}
             />
 
             <div className="flex items-center justify-between">
               <Select
                 value={visibility}
-                onValueChange={(v) =>
-                  setVisibility(v as 'private' | 'shared')
-                }
+                onValueChange={v => setVisibility(v as 'private' | 'shared')}
               >
                 <SelectTrigger className="w-36">
                   <SelectValue />
@@ -205,10 +175,7 @@ export default function PostsPage() {
               </Select>
 
               <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowComposer(false)}
-                >
+                <Button variant="ghost" onClick={() => setShowComposer(false)}>
                   Cancel
                 </Button>
                 <Button onClick={createPost}>Publish</Button>
@@ -226,7 +193,7 @@ export default function PostsPage() {
       )}
 
       <section className="space-y-5">
-        {posts.map((post) => (
+        {posts.map(post => (
           <PostCard
             key={post.id}
             post={post}
