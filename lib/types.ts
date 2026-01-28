@@ -13,6 +13,7 @@ export type Goal = {
   created_at: string;
   completed_at?: string;
   category_id?: string;
+  vision_id?: string;
 };
 
 export type Post = {
