@@ -4,8 +4,25 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
+import { ReadingCategory, ReadingStatus } from '@/lib/types'
 
 type DayState = 'before' | 'read' | 'missed' | 'future'
+
+
+export interface Reading {
+  id: string
+  title: string
+  author?: string
+  status: ReadingStatus
+  category: ReadingCategory
+  total_pages: number
+  pages_remaining: number
+}
+
+interface ReadingCalendarProps {
+  readings: Reading[]
+}
+
 
 interface DayLog {
   pages_read: number
