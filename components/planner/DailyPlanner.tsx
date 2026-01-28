@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Search, Menu, Calendar as CalendarIcon, Smile, Check } from 'lucide-react'
+import { Plus, Menu, Calendar as CalendarIcon, Smile, Check, Info } from 'lucide-react'
 
 import { TaskModal } from './tasks/TaskModal'
 import TopCalendar from './TopCalendar'
@@ -24,14 +24,35 @@ export interface PlannerTask {
   }
 }
 
-const moodThemes: Record<string, { bg: string; text: string; accent: string }> = {
-  '😊': { bg: 'bg-yellow-50/50', text: 'text-yellow-800', accent: 'bg-yellow-400' },
-  '🤩': { bg: 'bg-orange-50/50', text: 'text-orange-800', accent: 'bg-orange-400' },
-  '😐': { bg: 'bg-slate-50/50', text: 'text-slate-800', accent: 'bg-slate-400' },
-  '😔': { bg: 'bg-blue-50/50', text: 'text-blue-800', accent: 'bg-blue-400' },
-  '😴': { bg: 'bg-indigo-50/50', text: 'text-indigo-800', accent: 'bg-indigo-400' },
-  '😡': { bg: 'bg-red-50/50', text: 'text-red-800', accent: 'bg-red-400' },
-  'default': { bg: 'bg-white', text: 'text-slate-900', accent: 'bg-blue-600' }
+const moodThemes: Record<string, { bg: string; text: string; accent: string; verse: string }> = {
+  '😊': { 
+    bg: 'bg-yellow-50/50', text: 'text-yellow-800', accent: 'bg-yellow-400',
+    verse: "This is the day the Lord has made; let us rejoice and be glad in it. — Psalm 118:24"
+  },
+  '🤩': { 
+    bg: 'bg-orange-50/50', text: 'text-orange-800', accent: 'bg-orange-400',
+    verse: "I can do all things through Christ who strengthens me. — Philippians 4:13"
+  },
+  '😐': { 
+    bg: 'bg-slate-50/50', text: 'text-slate-800', accent: 'bg-slate-400',
+    verse: "Trust in the Lord with all your heart and lean not on your own understanding. — Proverbs 3:5"
+  },
+  '😔': { 
+    bg: 'bg-blue-50/50', text: 'text-blue-800', accent: 'bg-blue-400',
+    verse: "Commit to the Lord whatever you do, and he will establish your plans. — Proverbs 16:3"
+  },
+  '😴': { 
+    bg: 'bg-indigo-50/50', text: 'text-indigo-800', accent: 'bg-indigo-400',
+    verse: "In peace I will lie down and sleep, for you alone, Lord, make me dwell in safety. — Psalm 4:8"
+  },
+  '😡': { 
+    bg: 'bg-red-50/50', text: 'text-red-800', accent: 'bg-red-400',
+    verse: "Cast all your anxiety on Him because He cares for you. — 1 Peter 5:7"
+  },
+  'default': { 
+    bg: 'bg-white', text: 'text-slate-900', accent: 'bg-blue-600',
+    verse: "In his heart a man plans his course, but the Lord determines his steps. — Proverbs 16:9"
+  }
 }
 
 const moods = [
@@ -60,25 +81,11 @@ export default function DailyPlanner() {
   const dateKey = selectedDate.toISOString().split('T')[0]
   const theme = moodThemes[mood] || moodThemes['default']
 
-  // Helpers
   function parseMinutes(time: string) {
     const [h, m] = time.split(':').map(Number)
     return h * 60 + (m || 0)
   }
 
-  function shouldRepeatOnDate(task: PlannerTask, date: Date) {
-    if (!task.recurring) return false
-    if (task.recurring.until && date > new Date(task.recurring.until)) return false
-    if (task.recurring.unit === 'day') return true
-    if (task.recurring.unit === 'week') return task.recurring.daysOfWeek.includes(date.getDay())
-    return false
-  }
-
-  function materializeRecurringTask(task: PlannerTask): PlannerTask {
-    return { ...task, id: crypto.randomUUID(), completed: false, recurring: undefined }
-  }
-
-  // Load Data
   useEffect(() => { loadDay() }, [dateKey])
   useEffect(() => { loadGoals() }, [])
 
@@ -104,27 +111,7 @@ export default function DailyPlanner() {
       .eq('user_id', auth.user.id)
       .maybeSingle()
 
-    const { data: history } = await supabase
-      .from('planner_days')
-      .select('tasks')
-      .eq('user_id', auth.user.id)
-      .lt('day', dateKey)
-
-    const baseTasks: PlannerTask[] = Array.isArray(today?.tasks) ? today.tasks : []
-    const recurringTasks: PlannerTask[] = []
-
-    if (Array.isArray(history)) {
-      for (const row of history) {
-        if (!Array.isArray(row.tasks)) continue
-        for (const task of row.tasks) {
-          if (shouldRepeatOnDate(task, selectedDate) && !baseTasks.some(t => t.text === task.text && t.start === task.start)) {
-            recurringTasks.push(materializeRecurringTask(task))
-          }
-        }
-      }
-    }
-
-    setTasks([...baseTasks, ...recurringTasks])
+    setTasks(Array.isArray(today?.tasks) ? today.tasks : [])
     setMorning(today?.morning ?? '')
     setReflection(today?.reflection ?? '')
     setMood(today?.mood ?? '')
@@ -151,31 +138,31 @@ export default function DailyPlanner() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-700 ${theme.bg} text-black font-sans pb-32`}>
-      {/* 1. Header & Navigation */}
-      <header className={`sticky top-0 transition-colors duration-700 z-30 px-6 pt-12 pb-4 ${theme.bg} backdrop-blur-md`}>
+    <div className={`min-h-screen transition-colors duration-1000 ${theme.bg} text-black font-sans pb-32`}>
+      {/* 1. Header (Search Removed) */}
+      <header className={`sticky top-0 transition-colors duration-1000 z-30 px-6 pt-12 pb-4 ${theme.bg} backdrop-blur-md`}>
         <div className="flex justify-between items-end">
           <div>
-            <h1 className={`text-3xl font-light uppercase tracking-[0.2em] opacity-50 ${theme.text}`}>
+            <h1 className={`text-3xl font-light uppercase tracking-[0.2em] opacity-40 ${theme.text}`}>
               {selectedDate.toLocaleString('default', { month: 'short' })}
             </h1>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-5xl font-bold tracking-tighter ${theme.text}`}>
                 {selectedDate.getDate()}
               </span>
-              <span className={`text-lg font-semibold uppercase opacity-50 ${theme.text}`}>
+              <span className={`text-lg font-semibold uppercase opacity-40 ${theme.text}`}>
                 {selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
             </div>
           </div>
           <div className="flex gap-4 pb-1">
-            <Search className={`w-6 h-6 ${theme.text}`} />
             <div className="relative">
-              <CalendarIcon className={`w-6 h-6 ${theme.text}`} />
-              <span className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold mt-0.5 ${theme.text}`}>
+              <CalendarIcon className={`w-7 h-7 ${theme.text} opacity-80`} />
+              <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold mt-0.5 ${theme.text}`}>
                 {selectedDate.getDate()}
               </span>
             </div>
+            <Menu className={`w-7 h-7 ${theme.text} opacity-80`} />
           </div>
         </div>
       </header>
@@ -186,25 +173,25 @@ export default function DailyPlanner() {
       </div>
 
       <div className="mt-8 px-6">
-        {/* Date Header & Mood Picker */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex flex-col">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Today's Date</span>
-            <div className="text-xl font-bold">
-              {selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </div>
+        {/* Date Header & Mood Picker with Tooltip */}
+        <div className="flex items-start justify-between mb-8">
+          <div className="flex flex-col flex-1 pr-4">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1">Daily Verse</span>
+            <p className={`text-[13px] font-medium leading-relaxed italic ${theme.text} opacity-80 animate-in fade-in slide-in-from-left-2 duration-700`}>
+              "{theme.verse}"
+            </p>
           </div>
           
-          <div className="relative">
+          <div className="relative pt-1">
             <button 
               onClick={() => setShowMoodPicker(!showMoodPicker)}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm ${mood ? 'bg-white' : 'bg-slate-100'}`}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm ${mood ? 'bg-white scale-110' : 'bg-slate-100'}`}
             >
               {mood ? <span className="text-2xl">{mood}</span> : <Smile className="w-6 h-6 text-slate-400" />}
             </button>
 
             {showMoodPicker && (
-              <div className="absolute right-0 mt-3 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-slate-100 rounded-[28px] p-2 flex gap-2 z-50 animate-in fade-in zoom-in duration-200">
+              <div className="absolute right-0 mt-3 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-100 rounded-[28px] p-2 flex gap-2 z-50 animate-in fade-in zoom-in duration-200">
                 {moods.map((m) => (
                   <button
                     key={m.label}
@@ -213,9 +200,13 @@ export default function DailyPlanner() {
                       setShowMoodPicker(false);
                       saveDay(tasks, morning, reflection, m.emoji);
                     }}
-                    className="w-11 h-11 hover:bg-slate-50 rounded-full flex items-center justify-center text-xl active:scale-90 transition-transform"
+                    className="group relative w-11 h-11 hover:bg-slate-50 rounded-full flex items-center justify-center text-xl active:scale-90 transition-transform"
                   >
                     {m.emoji}
+                    {/* Tiny Tooltip Label */}
+                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-tighter">
+                      {m.label}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -225,7 +216,7 @@ export default function DailyPlanner() {
 
         {/* 3. Summary & Export */}
         <div className="space-y-3 mb-10">
-          <div className="bg-white/60 backdrop-blur-sm rounded-[28px] p-6 border border-white/50 shadow-sm">
+          <div className="bg-white/70 backdrop-blur-sm rounded-[32px] p-6 border border-white/50 shadow-sm">
             <DaySummary tasks={tasks} />
           </div>
           <div className="flex justify-start px-2">
@@ -241,9 +232,9 @@ export default function DailyPlanner() {
           </div>
           <textarea
             value={morning}
-            placeholder="Focus of the day..."
+            placeholder="What's your main focus today?"
             onChange={(e) => { setMorning(e.target.value); saveDay(tasks, e.target.value, reflection, mood); }}
-            className="w-full bg-white/50 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400 resize-none min-h-[90px]"
+            className="w-full bg-white/40 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400 resize-none min-h-[90px]"
           />
         </div>
 
@@ -255,11 +246,11 @@ export default function DailyPlanner() {
               <div 
                 key={task.id} 
                 onClick={() => setEditingTask(task)}
-                className="flex items-center gap-4 p-4 rounded-[24px] active:bg-white/40 transition-all active:scale-[0.98] group"
+                className="flex items-center gap-4 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group"
               >
                 <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
                 <div className="flex-1 flex items-center gap-3">
-                  <div className={`w-1.5 h-10 rounded-full transition-colors duration-700 ${task.completed ? 'bg-slate-200' : theme.accent}`} />
+                  <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${task.completed ? 'bg-slate-200' : theme.accent}`} />
                   <div>
                     <h3 className={`text-[17px] font-semibold leading-tight ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                       {task.text}
@@ -271,7 +262,7 @@ export default function DailyPlanner() {
                 </div>
                 <button 
                   onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }}
-                  className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-blue-500 border-blue-500' : 'border-slate-200 group-hover:border-slate-300'}`}
+                  className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-blue-600 border-blue-600' : 'border-slate-200 group-hover:border-slate-300'}`}
                 >
                   {task.completed && <Check className="text-white w-4 h-4 stroke-[3]" />}
                 </button>
@@ -284,8 +275,8 @@ export default function DailyPlanner() {
           onClick={() => setTaskModalHour(new Date().getHours())}
           className="w-full bg-slate-900/5 text-slate-500 py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-slate-900/10 transition-colors"
         >
-          Add event on {selectedDate.toLocaleString('default', { month: 'short', day: 'numeric' })}
-          <Plus className="w-5 h-5 opacity-40" />
+          Add event on {selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+          <Plus className="w-5 h-5 opacity-30" />
         </button>
 
         {/* 7. Evening Reflection */}
@@ -298,7 +289,7 @@ export default function DailyPlanner() {
             value={reflection}
             placeholder="How did you finish your day?"
             onChange={(e) => { setReflection(e.target.value); saveDay(tasks, morning, e.target.value, mood); }}
-            className="w-full bg-purple-50/30 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-purple-100 transition-all placeholder:text-slate-400 resize-none min-h-[120px]"
+            className="w-full bg-purple-50/20 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-purple-100 transition-all placeholder:text-slate-400 resize-none min-h-[120px]"
           />
         </div>
       </div>
@@ -306,7 +297,7 @@ export default function DailyPlanner() {
       {/* Floating Action Button */}
       <button
         onClick={() => setTaskModalHour(new Date().getHours())}
-        className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40"
+        className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40"
       >
         <Plus className="w-9 h-9 text-slate-800" strokeWidth={1.5} />
       </button>
