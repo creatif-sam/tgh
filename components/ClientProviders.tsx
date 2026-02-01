@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import ServiceWorkerRegistration from './ServiceWorkerRegistration';
+
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -23,7 +23,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <ServiceWorkerRegistration />
+   
       {children}
     </>
   );

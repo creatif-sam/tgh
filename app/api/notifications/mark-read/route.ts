@@ -1,36 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { pushNotificationService } from '@/lib/push-notifications';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const { notificationId, markAll } = await request.json()
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await request.json();
-    const { notificationId, markAll } = body;
+  let query = supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('user_id', user.id)
 
-    if (markAll) {
-      await pushNotificationService.markAllAsRead(user.id);
-    } else if (notificationId) {
-      await pushNotificationService.markAsRead(notificationId, user.id);
-    } else {
-      return NextResponse.json(
-        { error: 'Either notificationId or markAll must be provided' },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error marking notifications as read:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  // Mark specific or all
+  if (!markAll && notificationId) {
+    query = query.eq('id', notificationId)
+  } else {
+    query = query.eq('read', false)
   }
+
+  const { error } = await query
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }

@@ -45,6 +45,7 @@ export function Topbar() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // REAL-TIME LISTENER: Updates SamUr bar when new push events occur
       const channel = supabase
         .channel('notifications')
         .on(
@@ -56,7 +57,8 @@ export function Topbar() {
             filter: `user_id=eq.${user.id}`,
           },
           payload => {
-            setNotifications(prev => [payload.new as Notification, ...prev])
+            const newNotif = payload.new as Notification
+            setNotifications(prev => [newNotif, ...prev])
             setUnreadCount(prev => prev + 1)
           }
         )
@@ -122,91 +124,96 @@ export function Topbar() {
 
   return (
     <header
-      className="sticky top-0 z-40 w-full px-4 py-3 flex items-center justify-between"
+      className="sticky top-0 z-50 w-full px-4 py-3 flex items-center justify-between shadow-lg"
       style={{ background: 'linear-gradient(90deg, #7c3aed 0%, #000 100%)' }}
     >
-      <h1 className="text-lg font-semibold tracking-tight text-white">
-        SamUr🤍
+      <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-1">
+        SamUr<span className="text-red-400">🤍</span>
       </h1>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        {/* NOTIFICATION DROPDOWN */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/10 relative"
+              className="text-white hover:bg-white/10 relative rounded-full"
             >
               <Bell className="w-5 h-5" />
               {mounted && unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs">
+                <Badge 
+                  variant="destructive" 
+                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] font-bold border-2 border-indigo-600 rounded-full"
+                >
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </Badge>
               )}
             </Button>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="end" className="w-80">
-            <div className="px-2 py-1.5 text-sm font-medium">
-              Notifications
+          <DropdownMenuContent align="end" className="w-80 mt-2 rounded-2xl p-2 shadow-2xl">
+            <div className="flex justify-between items-center px-2 py-2">
+              <span className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Center
+              </span>
+              {unreadCount > 0 && (
+                <button 
+                  onClick={markAllAsRead}
+                  className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase"
+                >
+                  Clear All
+                </button>
+              )}
             </div>
 
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="opacity-50" />
 
-            {!mounted || loading ? (
-              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                Loading…
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                No notifications yet
-              </div>
-            ) : (
-              notifications.slice(0, 5).map(n => (
-                <DropdownMenuItem
-                  key={n.id}
-                  onClick={() => markAsRead(n.id)}
-                  className={`px-3 py-3 ${!n.read ? 'bg-blue-50' : ''}`}
-                >
-                  <div className="flex gap-3 w-full">
-                    <span>{iconFor(n.type)}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{n.title}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {n.body}
-                      </p>
-                      {mounted && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(
-                            new Date(n.created_at),
-                            { addSuffix: true }
-                          )}
+            <div className="max-h-[400px] overflow-y-auto">
+              {!mounted || loading ? (
+                <div className="px-2 py-8 text-center text-sm text-slate-400 italic">
+                  Syncing SamUr...
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="px-2 py-8 text-center text-sm text-slate-400">
+                  You're all caught up
+                </div>
+              ) : (
+                notifications.map(n => (
+                  <DropdownMenuItem
+                    key={n.id}
+                    onClick={() => !n.read && markAsRead(n.id)}
+                    className={`px-3 py-3 mb-1 rounded-xl transition-colors cursor-pointer ${
+                      !n.read 
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500' 
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex gap-3 w-full">
+                      <span className="text-lg shrink-0">{iconFor(n.type)}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm ${!n.read ? 'font-bold' : 'font-medium'} truncate`}>
+                          {n.title}
                         </p>
-                      )}
+                        <p className="text-xs text-slate-500 line-clamp-2 leading-snug">
+                          {n.body}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1 font-semibold uppercase tracking-tighter">
+                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </DropdownMenuItem>
-              ))
-            )}
-
-            {mounted && unreadCount > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={markAllAsRead}
-                  className="text-center text-sm text-blue-600"
-                >
-                  Mark all as read
-                </DropdownMenuItem>
-              </>
-            )}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/10"
+          className="text-white hover:bg-white/10 rounded-full"
         >
           <HelpCircle className="w-5 h-5" />
         </Button>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { ClientProviders } from "@/components/ClientProviders";
+import { PushInitializer } from "@/components/push/PushInitializer"; // New Component
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "TGH",
+    "apple-mobile-web-app-title": "SamUr",
     "format-detection": "telephone=no",
     "mobile-web-app-capable": "yes",
   },
@@ -39,7 +40,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#8b5cf6",
+  themeColor: "#2563eb", // Updated to SamUr Blue
 };
 
 const geistSans = Geist({
@@ -63,9 +64,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ClientProviders>
+            {/* Initializes Service Worker & Push logic */}
+            <PushInitializer /> 
             {children}
           </ClientProviders>
-          <Toaster />
+          <Toaster position="top-center" richColors />
         </ThemeProvider>
       </body>
     </html>
