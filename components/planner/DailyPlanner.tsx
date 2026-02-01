@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Calendar as CalendarIcon, Smile, Check, RefreshCw } from 'lucide-react'
+import { Plus, Calendar as CalendarIcon, Check, RefreshCw } from 'lucide-react'
 
 import { TaskModal } from './tasks/TaskModal'
 import TopCalendar from './TopCalendar'
 import DaySummary from './DailySummary'
 import FreeTimeExportButton from './FreeTimeExportButton'
+import MoodPicker, { moodThemes } from './MoodPicker' // Import here
 
 export interface PlannerTask {
   id: string
@@ -18,57 +19,13 @@ export interface PlannerTask {
   vision_id?: string 
   recurring?: {
     interval: number
-    unit: 'day' | 'week'
+    unit: 'day' | 'week' | 'month' 
     daysOfWeek: number[]
     until?: string
   }
 }
 
-type Vision = {
-  id: string
-  title: string
-  emoji: string
-}
-
-const moodThemes: Record<string, { bg: string; text: string; accent: string; verse: string }> = {
-  '😊': { 
-    bg: 'bg-yellow-50/50', text: 'text-yellow-800', accent: 'bg-yellow-400',
-    verse: "This is the day the Lord has made; let us rejoice and be glad in it. — Psalm 118:24"
-  },
-  '🤩': { 
-    bg: 'bg-orange-50/50', text: 'text-orange-800', accent: 'bg-orange-400',
-    verse: "I can do all things through Christ who strengthens me. — Philippians 4:13"
-  },
-  '😐': { 
-    bg: 'bg-slate-50/50', text: 'text-slate-800', accent: 'bg-slate-400',
-    verse: "Trust in the Lord with all your heart and lean not on your own understanding. — Proverbs 3:5"
-  },
-  '😔': { 
-    bg: 'bg-blue-50/50', text: 'text-blue-800', accent: 'bg-blue-400',
-    verse: "Commit to the Lord whatever you do, and he will establish your plans. — Proverbs 16:3"
-  },
-  '😴': { 
-    bg: 'bg-indigo-50/50', text: 'text-indigo-800', accent: 'bg-indigo-400',
-    verse: "In peace I will lie down and sleep, for you alone, Lord, make me dwell in safety. — Psalm 4:8"
-  },
-  '😡': { 
-    bg: 'bg-red-50/50', text: 'text-red-800', accent: 'bg-red-400',
-    verse: "Cast all your anxiety on Him because He cares for you. — 1 Peter 5:7"
-  },
-  'default': { 
-    bg: 'bg-white', text: 'text-slate-900', accent: 'bg-blue-600',
-    verse: "In his heart a man plans his course, but the Lord determines his steps. — Proverbs 16:9"
-  }
-}
-
-const moods = [
-  { emoji: '😊', label: 'Great' },
-  { emoji: '🤩', label: 'Inspired' },
-  { emoji: '😐', label: 'Okay' },
-  { emoji: '😔', label: 'Productive' },
-  { emoji: '😴', label: 'Tired' },
-  { emoji: '😡', label: 'Stressed' },
-]
+type Vision = { id: string; title: string; emoji: string }
 
 export default function DailyPlanner() {
   const supabase = createClient()
@@ -79,14 +36,12 @@ export default function DailyPlanner() {
   const [morning, setMorning] = useState('')
   const [reflection, setReflection] = useState('')
   const [mood, setMood] = useState('')
-  const [showMoodPicker, setShowMoodPicker] = useState(false)
   const [taskModalHour, setTaskModalHour] = useState<number | null>(null)
   const [editingTask, setEditingTask] = useState<PlannerTask | null>(null)
   const [visionsMap, setVisionsMap] = useState<Record<string, Vision>>({})
 
   const dateKey = selectedDate.toISOString().split('T')[0]
   const theme = moodThemes[mood] || moodThemes['default']
-  const currentMoodLabel = moods.find(m => m.emoji === mood)?.label || ''
 
   function parseMinutes(time: string) {
     const [h, m] = time.split(':').map(Number)
@@ -100,6 +55,7 @@ export default function DailyPlanner() {
     if (untilDate && date > untilDate) return false;
     if (task.recurring.unit === 'day') return true;
     if (task.recurring.unit === 'week') return task.recurring.daysOfWeek.includes(dayOfWeek);
+    if (task.recurring.unit === 'month') return true; 
     return false;
   }
 
@@ -120,7 +76,6 @@ export default function DailyPlanner() {
   async function loadDay() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth?.user) return
-
     const { data: todayData } = await supabase
       .from('planner_days')
       .select('tasks, morning, reflection, mood, completed_task_ids')
@@ -128,17 +83,11 @@ export default function DailyPlanner() {
       .eq('user_id', auth.user.id)
       .maybeSingle()
 
-    const { data: allDays } = await supabase
-      .from('planner_days')
-      .select('tasks')
-      .eq('user_id', auth.user.id)
-      .not('tasks', 'is', null)
+    const { data: allDays } = await supabase.from('planner_days').select('tasks').eq('user_id', auth.user.id).not('tasks', 'is', null)
 
     const allUniqueTasks = new Map<string, PlannerTask>();
-    if (Array.isArray(todayData?.tasks)) {
-      todayData.tasks.forEach((t: PlannerTask) => allUniqueTasks.set(t.id, t));
-    }
-
+    if (Array.isArray(todayData?.tasks)) todayData.tasks.forEach((t: PlannerTask) => allUniqueTasks.set(t.id, t));
+    
     allDays?.forEach(day => {
       if (Array.isArray(day.tasks)) {
         day.tasks.forEach((t: PlannerTask) => {
@@ -165,29 +114,16 @@ export default function DailyPlanner() {
   ) {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth?.user) return
-
-    const { error } = await supabase
-      .from('planner_days')
-      .upsert({
-        day: dateKey, 
-        user_id: auth.user.id, 
-        tasks: updatedTasks,
-        completed_task_ids: updatedCompletedIds,
-        morning: updatedMorning, 
-        reflection: updatedReflection, 
-        mood: updatedMood,
-        visibility: 'private',
-      }, { onConflict: 'user_id,day' })
-
-    if (error) console.error("Error saving day:", error.message)
+    await supabase.from('planner_days').upsert({
+      day: dateKey, user_id: auth.user.id, tasks: updatedTasks,
+      completed_task_ids: updatedCompletedIds, morning: updatedMorning, 
+      reflection: updatedReflection, mood: updatedMood, visibility: 'private',
+    }, { onConflict: 'user_id,day' })
   }
 
   function toggleComplete(taskId: string) {
-    const isCurrentlyDone = completedTaskIds.includes(taskId);
-    const updatedIds = isCurrentlyDone 
-      ? completedTaskIds.filter(id => id !== taskId)
-      : [...completedTaskIds, taskId];
-    
+    const updatedIds = completedTaskIds.includes(taskId) 
+      ? completedTaskIds.filter(id => id !== taskId) : [...completedTaskIds, taskId];
     setCompletedTaskIds(updatedIds);
     saveDay(tasks, morning, reflection, mood, updatedIds);
   }
@@ -197,26 +133,15 @@ export default function DailyPlanner() {
       <header className={`sticky top-0 transition-colors duration-1000 z-30 px-6 pt-12 pb-4 ${theme.bg} backdrop-blur-md`}>
         <div className="flex justify-between items-end">
           <div>
-            <h1 className={`text-3xl font-light uppercase tracking-[0.2em] opacity-40 ${theme.text}`}>
-              {selectedDate.toLocaleString('default', { month: 'short' })}
-            </h1>
+            <h1 className={`text-3xl font-light uppercase tracking-[0.2em] opacity-40 ${theme.text}`}>{selectedDate.toLocaleString('default', { month: 'short' })}</h1>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-5xl font-bold tracking-tighter ${theme.text}`}>
-                {selectedDate.getDate()}
-              </span>
-              <span className={`text-lg font-semibold uppercase opacity-40 ${theme.text}`}>
-                {selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}
-              </span>
+              <span className={`text-5xl font-bold tracking-tighter ${theme.text}`}>{selectedDate.getDate()}</span>
+              <span className={`text-lg font-semibold uppercase opacity-40 ${theme.text}`}>{selectedDate.toLocaleDateString('en-US', { weekday: 'short' })}</span>
             </div>
           </div>
-          <div className="flex gap-4 pb-1">
-            <div className="relative">
-              <CalendarIcon className={`w-7 h-7 ${theme.text} opacity-80`} />
-              <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold mt-0.5 ${theme.text}`}>
-                {new Date().getDate()}
-              </span>
-            </div>
-            {/* Burger Menu Removed */}
+          <div className="relative">
+            <CalendarIcon className={`w-7 h-7 ${theme.text} opacity-80`} />
+            <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-bold mt-0.5 ${theme.text}`}>{new Date().getDate()}</span>
           </div>
         </div>
       </header>
@@ -226,42 +151,13 @@ export default function DailyPlanner() {
       </div>
 
       <div className="mt-8 px-6">
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex flex-col flex-1 pr-4">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1">Daily Verse</span>
-            <p className={`text-[13px] font-medium leading-relaxed italic ${theme.text} opacity-80`}>
-              "{theme.verse}"
-            </p>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="relative pt-1">
-              <button 
-                onClick={() => setShowMoodPicker(!showMoodPicker)}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm ${mood ? 'bg-white scale-110' : 'bg-slate-100'}`}
-              >
-                {mood ? <span className="text-2xl">{mood}</span> : <Smile className="w-6 h-6 text-slate-400" />}
-              </button>
-              {showMoodPicker && (
-                <div className="absolute right-0 mt-3 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-100 rounded-[28px] p-2 flex gap-2 z-50 animate-in fade-in zoom-in duration-200">
-                  {moods.map((m) => (
-                    <button
-                      key={m.label}
-                      onClick={() => {
-                        setMood(m.emoji);
-                        setShowMoodPicker(false);
-                        saveDay(tasks, morning, reflection, m.emoji);
-                      }}
-                      className="w-11 h-11 hover:bg-slate-50 rounded-full flex items-center justify-center text-xl"
-                    >
-                      {m.emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {mood && <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.text} opacity-60`}>{currentMoodLabel}</span>}
-          </div>
-        </div>
+        <MoodPicker 
+          currentMood={mood} 
+          onMoodSelect={(newMood) => {
+            setMood(newMood)
+            saveDay(tasks, morning, reflection, newMood, completedTaskIds)
+          }} 
+        />
 
         <div className="space-y-3 mb-6">
           <div className="bg-white/70 backdrop-blur-sm rounded-[32px] p-6 border border-white/50 shadow-sm">
@@ -272,62 +168,36 @@ export default function DailyPlanner() {
           </div>
         </div>
 
-        {/* Relocated Morning Intention */}
         <div className="mb-10">
           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-3 block px-2">Morning Intention</label>
           <textarea
             value={morning}
             placeholder="Focus of the day..."
             onChange={(e) => { setMorning(e.target.value); saveDay(tasks, e.target.value, reflection, mood, completedTaskIds); }}
-            className="w-full bg-white/40 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400 resize-none min-h-[90px]"
+            className="w-full bg-white/40 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-blue-100 transition-all resize-none min-h-[90px]"
           />
         </div>
 
         <div className="space-y-1 relative mb-10">
-          {tasks
-            .sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start))
-            .map((task) => {
-              const isDone = completedTaskIds.includes(task.id);
-              return (
-                <div 
-                  key={task.id} 
-                  onClick={() => setEditingTask(task)}
-                  className="flex items-center gap-4 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group"
-                >
-                  <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
-                  <div className="flex-1 flex items-center gap-3">
-                    <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-slate-200' : theme.accent}`} />
-                    <div>
-                      <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                        {task.text}
-                        {task.recurring && <RefreshCw className="w-3.5 h-3.5 opacity-30" />}
-                      </h3>
-                      <p className="text-[13px] text-slate-400 font-medium mt-1">
-                        {task.start} — {task.end} 
-                        {task.vision_id && visionsMap[task.vision_id] && (
-                          <span className="text-indigo-500 ml-1 inline-flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                            <span>{visionsMap[task.vision_id].emoji || '🔭'}</span>
-                            <span>{visionsMap[task.vision_id].title}</span>
-                          </span>
-                        )}
-                      </p>
-                    </div>
+          {tasks.sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start)).map((task) => {
+            const isDone = completedTaskIds.includes(task.id);
+            return (
+              <div key={task.id} onClick={() => setEditingTask(task)} className="flex items-center gap-4 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group">
+                <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
+                <div className="flex-1 flex items-center gap-3">
+                  <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-slate-200' : theme.accent}`} />
+                  <div>
+                    <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{task.text} {task.recurring && <RefreshCw className="w-3.5 h-3.5 opacity-30" />}</h3>
+                    <p className="text-[13px] text-slate-400 font-medium mt-1">{task.start} — {task.end}</p>
                   </div>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }}
-                    className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-blue-600 border-blue-600' : 'border-slate-200 group-hover:border-slate-300'}`}
-                  >
-                    {isDone && <Check className="text-white w-4 h-4 stroke-[3]" />}
-                  </button>
                 </div>
-              )
-            })}
+                <button onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }} className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-blue-600 border-blue-600' : 'border-slate-200'}`}>{isDone && <Check className="text-white w-4 h-4 stroke-[3]" />}</button>
+              </div>
+            )
+          })}
         </div>
 
-        <button 
-          onClick={() => setTaskModalHour(new Date().getHours())}
-          className="w-full bg-slate-900/5 text-slate-500 py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-slate-900/10 transition-colors"
-        >
+        <button onClick={() => setTaskModalHour(new Date().getHours())} className="w-full bg-slate-900/5 text-slate-500 py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-slate-900/10 transition-colors">
           Add event on {selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           <Plus className="w-5 h-5 opacity-30" />
         </button>
@@ -338,30 +208,27 @@ export default function DailyPlanner() {
             value={reflection}
             placeholder="How did you finish your day?"
             onChange={(e) => { setReflection(e.target.value); saveDay(tasks, morning, e.target.value, mood, completedTaskIds); }}
-            className="w-full bg-purple-50/20 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-purple-100 transition-all placeholder:text-slate-400 resize-none min-h-[120px]"
+            className="w-full bg-purple-50/20 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-purple-100 transition-all resize-none min-h-[120px]"
           />
         </div>
       </div>
 
-      <button
-        onClick={() => setTaskModalHour(new Date().getHours())}
-        className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40"
-      >
+      <button onClick={() => setTaskModalHour(new Date().getHours())} className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40">
         <Plus className="w-9 h-9 text-slate-800" strokeWidth={1.5} />
       </button>
 
       {(taskModalHour !== null || editingTask) && (
-        <TaskModal
-          hour={editingTask ? parseInt(editingTask.start.split(':')[0]) : taskModalHour!}
-          existingTask={editingTask}
-          onClose={() => { setTaskModalHour(null); setEditingTask(null); }}
+        <TaskModal 
+          hour={editingTask ? parseInt(editingTask.start.split(':')[0]) : taskModalHour!} 
+          existingTask={editingTask} 
+          onClose={() => { setTaskModalHour(null); setEditingTask(null); }} 
           onSave={(task) => {
             const updated = editingTask ? tasks.map((t) => (t.id === task.id ? task : t)) : [...tasks, task]
             setTasks(updated)
             saveDay(updated, morning, reflection, mood, completedTaskIds)
             setTaskModalHour(null)
             setEditingTask(null)
-          }}
+          }} 
         />
       )}
     </div>
