@@ -44,9 +44,21 @@ export default function DailyPlanner() {
   const dateKey = selectedDate.toISOString().split('T')[0]
   const theme = moodThemes[mood] || moodThemes['default']
 
+  /**
+   * STANDARD TIME CALCULATION
+   * Corrects for tasks crossing midnight (e.g., 23:00 to 02:00)
+   */
   function parseMinutes(time: string) {
     const [h, m] = time.split(':').map(Number)
     return h * 60 + (m || 0)
+  }
+
+  // Used for sorting and checking relative order
+  function getEffectiveMinutes(start: string, end: string) {
+    const s = parseMinutes(start)
+    let e = parseMinutes(end)
+    if (e < s) e += 1440 // Add 24 hours if it ends the next day
+    return { start: s, end: e }
   }
 
   function shouldShowTask(task: PlannerTask, date: Date) {
@@ -142,7 +154,6 @@ export default function DailyPlanner() {
           </div>
           
           <div className="flex items-center gap-5">
-            {/* Analytics Link Icon */}
             <Link href="/protected/analytics" className="transition-transform active:scale-90">
               <BarChart3 className={`w-7 h-7 ${theme.text} opacity-80`} />
             </Link>

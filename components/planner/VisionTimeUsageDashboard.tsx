@@ -11,22 +11,36 @@ import { PlannerTask } from './DailyPlanner'
 type Period = 'week' | 'month' | 'year'
 
 interface DashboardProps {
-  allTasks: PlannerTask[] // Fetch a larger dataset for this
+  allTasks: PlannerTask[] 
   visionsMap: Record<string, { title: string; emoji: string }>
 }
 
 export default function VisionProgressDashboard({ allTasks, visionsMap }: DashboardProps) {
   const [period, setPeriod] = useState<Period>('week')
 
+  function parseMinutes(time: string) {
+    const [h, m] = time.split(':').map(Number)
+    return h * 60 + (m || 0)
+  }
+
   const stats = useMemo(() => {
     const data: Record<string, { hours: number; sessions: number }> = {}
     
-    // Filter and aggregate logic based on 'period'
-    // (In a real app, you'd pass pre-filtered data from the parent)
     allTasks.forEach(task => {
       if (!task.vision_id || !visionsMap[task.vision_id]) return
       
-      const hours = (parseMinutes(task.end) - parseMinutes(task.start)) / 60
+      const startMins = parseMinutes(task.start)
+      let endMins = parseMinutes(task.end)
+      
+      /** * FIX: MIDNIGHT CROSSING LOGIC 
+       * If end time is before start time (e.g., 23:00 to 02:00), 
+       * add 1440 minutes (24 hours).
+       */
+      if (endMins < startMins) {
+        endMins += 1440
+      }
+
+      const hours = (endMins - startMins) / 60
       const title = visionsMap[task.vision_id].title
       
       if (!data[title]) data[title] = { hours: 0, sessions: 0 }
@@ -40,11 +54,6 @@ export default function VisionProgressDashboard({ allTasks, visionsMap }: Dashbo
       sessions: d.sessions
     }))
   }, [allTasks, period, visionsMap])
-
-  function parseMinutes(time: string) {
-    const [h, m] = time.split(':').map(Number)
-    return h * 60 + (m || 0)
-  }
 
   return (
     <div className="w-full bg-white dark:bg-slate-900 rounded-[32px] p-4 md:p-8 shadow-sm border border-slate-100 dark:border-slate-800 space-y-8">
@@ -87,7 +96,7 @@ export default function VisionProgressDashboard({ allTasks, visionsMap }: Dashbo
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
               <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10}} />
               <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'}} />
-              <Bar dataKey="hours" fill="#2563eb" radius={[8, 8, 0, 0]} barSize={period === 'week' ? 40 : 20} />
+              <Bar dataKey="hours" fill="#2563eb" radius={[8, 8, 0, 0]} barSize={40} />
             </BarChart>
           ) : (
             <LineChart data={stats}>
@@ -114,7 +123,7 @@ export default function VisionProgressDashboard({ allTasks, visionsMap }: Dashbo
             </div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1 truncate">{item.name}</h4>
             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1 rounded-full overflow-hidden">
-               <div className="bg-blue-600 h-full" style={{ width: `${Math.min((item.hours / 20) * 100, 100)}%` }} />
+                <div className="bg-blue-600 h-full" style={{ width: `${Math.min((item.hours / 20) * 100, 100)}%` }} />
             </div>
             <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">{item.sessions} sessions this {period}</p>
           </div>
