@@ -2,24 +2,15 @@
 
 import React from 'react'
 
-export function Modal({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode
-  onClose: () => void
-}) {
+export function Modal({ children, onClose }: { children: React.ReactNode, onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-      <div className="bg-background rounded-xl p-4 w-[90%] max-w-sm">
+    // Increased z-index to 9999 to sit above the bottom nav
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         {children}
-        <button
-          onClick={onClose}
-          className="mt-2 text-sm text-muted-foreground"
-        >
-          Close
-        </button>
       </div>
+      {/* Click outside to close */}
+      <div className="fixed inset-0 -z-10" onClick={onClose} />
     </div>
   )
 }

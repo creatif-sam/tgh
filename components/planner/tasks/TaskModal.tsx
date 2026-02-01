@@ -5,7 +5,7 @@ import type { PlannerTask } from '../DailyPlanner'
 import { TaskBasics } from './TaskBasics'
 import { TaskRecurrence } from './TaskRecurrence'
 import { Modal } from './Modal'
-import { Clock, ArrowRight } from 'lucide-react'
+import { Clock, ArrowRight, X, Calendar as CalendarIcon } from 'lucide-react'
 
 export function TaskModal({
   hour,
@@ -34,11 +34,8 @@ export function TaskModal({
     } else {
       const hStart = hour.toString().padStart(2, '0')
       const hEnd = (hour + 1).toString().padStart(2, '0')
-      setText('')
       setStartTime(`${hStart}:00`)
       setEndTime(`${hEnd}:00`)
-      setVisionId(null)
-      setRecurring(null)
     }
   }, [existingTask, hour])
 
@@ -47,115 +44,89 @@ export function TaskModal({
     const [eH, eM] = endTime.split(':').map(Number)
     let diff = (eH * 60 + eM) - (sH * 60 + sM)
     if (diff < 0) diff += 1440 
-    
     const h = Math.floor(diff / 60)
     const m = diff % 60
-    return `${h > 0 ? `${h}h ` : ""}${m > 0 ? `${m}m` : h === 0 ? "0m" : ""}`
-  }
-
-  function handleSave() {
-    if (!text.trim()) return alert("Please enter a title")
-    
-    onSave({
-      id: existingTask?.id ?? crypto.randomUUID(),
-      text,
-      start: startTime,
-      end: endTime,
-      completed: existingTask?.completed ?? false,
-      vision_id: visionId ?? undefined,
-      recurring: recurring ?? undefined,
-    })
+    return h > 0 ? `${h}h ${m > 0 ? `${m}m` : ''}` : `${m}m`
   }
 
   return (
     <Modal onClose={onClose}>
-      <div className="space-y-6 pb-2 text-slate-900 dark:text-slate-100 max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center px-1">
-          <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
-            {existingTask ? 'Edit Event' : 'New Event'}
-          </h3>
-          <span className="text-[12px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400 px-3 py-1 rounded-full uppercase tracking-tighter">
-            {getDurationLabel()}
-          </span>
-        </div>
-
-        {/* Task Title Input */}
-        <div className="relative group">
-          <input
-            autoFocus
-            type="text"
-            placeholder="What's happening?"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full text-lg font-medium border-b-2 border-slate-100 dark:border-slate-800 bg-transparent focus:border-blue-500 transition-colors py-2 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600 dark:text-white"
-          />
-        </div>
-
-        {/* Time Selector - Always Row on Desktop, Stacked on Mobile */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">
-            <Clock size={14} />
-            <span>Time Period</span>
+      {/* WIDER CONTAINER: max-w-4xl (900px) on PC */}
+      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+        
+        {/* Header - Wide Style */}
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start border-b border-slate-50 dark:border-slate-800">
+          <div className="flex-1">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Communion with the Great..."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder:text-slate-200 dark:placeholder:text-slate-700 dark:text-white"
+            />
+            <p className="text-[11px] font-bold text-blue-500 uppercase tracking-widest mt-1">
+              {existingTask ? 'Modify Existing Event' : 'Planning New Activity'}
+            </p>
           </div>
-          
-          <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-[24px]">
-            <div className="w-full md:flex-1 bg-white dark:bg-slate-800 rounded-[18px] p-3 shadow-sm border border-slate-100 dark:border-slate-700">
-              <p className="text-[10px] text-blue-500 dark:text-blue-400 font-bold uppercase mb-1 text-center">Start</p>
-              <input 
-                type="time" 
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full text-center font-bold text-lg bg-transparent border-none focus:ring-0 cursor-pointer dark:text-white [color-scheme:dark]"
-              />
-            </div>
-
-            <ArrowRight className="text-slate-300 dark:text-slate-600 shrink-0 hidden md:block" size={20} />
-
-            <div className="w-full md:flex-1 bg-white dark:bg-slate-800 rounded-[18px] p-3 shadow-sm border border-slate-100 dark:border-slate-700">
-              <p className="text-[10px] text-purple-500 dark:text-purple-400 font-bold uppercase mb-1 text-center">End</p>
-              <input 
-                type="time" 
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full text-center font-bold text-lg bg-transparent border-none focus:ring-0 cursor-pointer dark:text-white [color-scheme:dark]"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Modular Components */}
-        <div className="space-y-4 pt-2">
-          <TaskBasics
-            text={text}
-            visionId={visionId}
-            onTextChange={setText}
-            onVisionChange={setVisionId}
-            hideTitle={true}
-          />
-
-          {/* Note: For the 3-input row to work, TaskRecurrence internal 
-            JSX must use: <div className="flex flex-col md:flex-row gap-3">
-          */}
-          <TaskRecurrence
-            value={recurring}
-            onChange={setRecurring}
-          />
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3 pt-4">
-          <button
-            onClick={onClose}
-            className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold rounded-full py-4 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all active:scale-95"
-          >
-            Cancel
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full ml-4">
+            <X className="w-6 h-6 text-slate-400" />
           </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 bg-blue-600 text-white font-bold rounded-full py-4 shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-all active:scale-95"
+        </div>
+
+        {/* 2-COLUMN CONTENT: Side by side on PC, stacked on Mobile */}
+        <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
+          
+          {/* LEFT COLUMN: Time & Vision */}
+          <div className="space-y-8">
+            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-[24px] p-6 border border-slate-100 dark:border-slate-700">
+              <div className="flex justify-between items-center mb-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Clock size={14} /> Timeline
+                </label>
+                <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                  {getDurationLabel()}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <input type="time" value={startTime} onChange={(e)=>setStartTime(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-3 text-xl font-bold text-center border border-slate-200 dark:border-slate-600 dark:text-white" />
+                <ArrowRight className="text-slate-300" />
+                <input type="time" value={endTime} onChange={(e)=>setEndTime(e.target.value)} className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-3 text-xl font-bold text-center border border-slate-200 dark:border-slate-600 dark:text-white" />
+              </div>
+            </div>
+
+            <TaskBasics
+              text={text}
+              visionId={visionId}
+              onTextChange={setText}
+              onVisionChange={setVisionId}
+              hideTitle={true}
+            />
+          </div>
+
+          {/* RIGHT COLUMN: Recurrence */}
+          <div className="lg:border-l lg:pl-10 lg:border-slate-100 lg:dark:border-slate-800">
+            <div className="flex items-center gap-2 mb-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <CalendarIcon size={14} /> Recurrence Rules
+            </div>
+            <TaskRecurrence
+              value={recurring}
+              onChange={setRecurring}
+            />
+          </div>
+        </div>
+
+        {/* FOOTER ACTIONS */}
+        <div className="px-8 py-6 bg-slate-50 dark:bg-slate-800/20 flex flex-col md:flex-row gap-4 justify-end">
+          <button onClick={onClose} className="px-8 py-3 text-sm font-bold text-slate-400 hover:text-slate-600">
+            Discard
+          </button>
+          <button 
+            onClick={() => text.trim() && onSave({ id: existingTask?.id ?? crypto.randomUUID(), text, start: startTime, end: endTime, completed: existingTask?.completed ?? false, vision_id: visionId ?? undefined, recurring: recurring ?? undefined })}
+            className={`px-12 py-4 rounded-2xl font-bold text-sm shadow-lg transition-all ${text.trim() ? 'bg-blue-600 text-white hover:scale-[1.02] shadow-blue-200' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
           >
-            Save
+            {existingTask ? 'Save Changes' : 'Confirm Plan'}
           </button>
         </div>
       </div>
