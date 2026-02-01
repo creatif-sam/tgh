@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Menu, Calendar as CalendarIcon, Smile, Check } from 'lucide-react'
+import { Plus, Calendar as CalendarIcon, Smile, Check, RefreshCw } from 'lucide-react'
 
 import { TaskModal } from './tasks/TaskModal'
 import TopCalendar from './TopCalendar'
@@ -24,7 +24,6 @@ export interface PlannerTask {
   }
 }
 
-// Vision Type based on your Schema
 type Vision = {
   id: string
   title: string
@@ -76,14 +75,13 @@ export default function DailyPlanner() {
 
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [tasks, setTasks] = useState<PlannerTask[]>([])
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([])
   const [morning, setMorning] = useState('')
   const [reflection, setReflection] = useState('')
   const [mood, setMood] = useState('')
   const [showMoodPicker, setShowMoodPicker] = useState(false)
   const [taskModalHour, setTaskModalHour] = useState<number | null>(null)
   const [editingTask, setEditingTask] = useState<PlannerTask | null>(null)
-  
-  // Updated to store the whole vision object for emoji access
   const [visionsMap, setVisionsMap] = useState<Record<string, Vision>>({})
 
   const dateKey = selectedDate.toISOString().split('T')[0]
@@ -95,19 +93,23 @@ export default function DailyPlanner() {
     return h * 60 + (m || 0)
   }
 
+  function shouldShowTask(task: PlannerTask, date: Date) {
+    if (!task.recurring) return false; 
+    const dayOfWeek = date.getDay();
+    const untilDate = task.recurring.until ? new Date(task.recurring.until) : null;
+    if (untilDate && date > untilDate) return false;
+    if (task.recurring.unit === 'day') return true;
+    if (task.recurring.unit === 'week') return task.recurring.daysOfWeek.includes(dayOfWeek);
+    return false;
+  }
+
   useEffect(() => { loadDay() }, [dateKey])
   useEffect(() => { loadVisions() }, [])
 
   async function loadVisions() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth?.user) return
-
-    // Changed to owner_id per your schema
-    const { data: visions } = await supabase
-      .from('visions')
-      .select('id, title, emoji')
-      .eq('owner_id', auth.user.id) 
-
+    const { data: visions } = await supabase.from('visions').select('id, title, emoji').eq('owner_id', auth.user.id) 
     if (visions) {
       const map: Record<string, Vision> = {}
       visions.forEach((v) => { map[v.id] = v })
@@ -119,48 +121,75 @@ export default function DailyPlanner() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth?.user) return
 
-    const { data: today } = await supabase
+    const { data: todayData } = await supabase
       .from('planner_days')
-      .select('tasks, morning, reflection, mood')
+      .select('tasks, morning, reflection, mood, completed_task_ids')
       .eq('day', dateKey)
       .eq('user_id', auth.user.id)
       .maybeSingle()
 
-    setTasks(Array.isArray(today?.tasks) ? today.tasks : [])
-    setMorning(today?.morning ?? '')
-    setReflection(today?.reflection ?? '')
-    setMood(today?.mood ?? '')
+    const { data: allDays } = await supabase
+      .from('planner_days')
+      .select('tasks')
+      .eq('user_id', auth.user.id)
+      .not('tasks', 'is', null)
+
+    const allUniqueTasks = new Map<string, PlannerTask>();
+    if (Array.isArray(todayData?.tasks)) {
+      todayData.tasks.forEach((t: PlannerTask) => allUniqueTasks.set(t.id, t));
+    }
+
+    allDays?.forEach(day => {
+      if (Array.isArray(day.tasks)) {
+        day.tasks.forEach((t: PlannerTask) => {
+          if (t.recurring && !allUniqueTasks.has(t.id)) {
+            if (shouldShowTask(t, selectedDate)) allUniqueTasks.set(t.id, t);
+          }
+        });
+      }
+    });
+
+    setTasks(Array.from(allUniqueTasks.values()))
+    setCompletedTaskIds(todayData?.completed_task_ids || [])
+    setMorning(todayData?.morning ?? '')
+    setReflection(todayData?.reflection ?? '')
+    setMood(todayData?.mood ?? '')
   }
-async function saveDay(
-  updatedTasks = tasks, 
-  updatedMorning = morning, 
-  updatedReflection = reflection, 
-  updatedMood = mood
-) {
-  const { data: auth } = await supabase.auth.getUser()
-  if (!auth?.user) return
 
-  const { error } = await supabase
-    .from('planner_days')
-    .upsert({
-      day: dateKey, 
-      user_id: auth.user.id, 
-      tasks: updatedTasks, // This JSONB column holds your vision_id
-      morning: updatedMorning, 
-      reflection: updatedReflection, 
-      mood: updatedMood,
-      visibility: 'private',
-    }, { 
-      onConflict: 'user_id,day' // This must match your unique index/constraint
-    })
+  async function saveDay(
+    updatedTasks = tasks, 
+    updatedMorning = morning, 
+    updatedReflection = reflection, 
+    updatedMood = mood,
+    updatedCompletedIds = completedTaskIds
+  ) {
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth?.user) return
 
-  if (error) console.error("Error saving day:", error.message)
-}
+    const { error } = await supabase
+      .from('planner_days')
+      .upsert({
+        day: dateKey, 
+        user_id: auth.user.id, 
+        tasks: updatedTasks,
+        completed_task_ids: updatedCompletedIds,
+        morning: updatedMorning, 
+        reflection: updatedReflection, 
+        mood: updatedMood,
+        visibility: 'private',
+      }, { onConflict: 'user_id,day' })
+
+    if (error) console.error("Error saving day:", error.message)
+  }
 
   function toggleComplete(taskId: string) {
-    const updated = tasks.map((t) => t.id === taskId ? { ...t, completed: !t.completed } : t)
-    setTasks(updated)
-    saveDay(updated, morning, reflection, mood)
+    const isCurrentlyDone = completedTaskIds.includes(taskId);
+    const updatedIds = isCurrentlyDone 
+      ? completedTaskIds.filter(id => id !== taskId)
+      : [...completedTaskIds, taskId];
+    
+    setCompletedTaskIds(updatedIds);
+    saveDay(tasks, morning, reflection, mood, updatedIds);
   }
 
   return (
@@ -187,7 +216,7 @@ async function saveDay(
                 {new Date().getDate()}
               </span>
             </div>
-            <Menu className={`w-7 h-7 ${theme.text} opacity-80`} />
+            {/* Burger Menu Removed */}
           </div>
         </div>
       </header>
@@ -200,11 +229,10 @@ async function saveDay(
         <div className="flex items-start justify-between mb-8">
           <div className="flex flex-col flex-1 pr-4">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-1">Daily Verse</span>
-            <p className={`text-[13px] font-medium leading-relaxed italic ${theme.text} opacity-80 animate-in fade-in slide-in-from-left-2 duration-700`}>
+            <p className={`text-[13px] font-medium leading-relaxed italic ${theme.text} opacity-80`}>
               "{theme.verse}"
             </p>
           </div>
-          
           <div className="flex flex-col items-center gap-1.5">
             <div className="relative pt-1">
               <button 
@@ -213,7 +241,6 @@ async function saveDay(
               >
                 {mood ? <span className="text-2xl">{mood}</span> : <Smile className="w-6 h-6 text-slate-400" />}
               </button>
-
               {showMoodPicker && (
                 <div className="absolute right-0 mt-3 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-100 rounded-[28px] p-2 flex gap-2 z-50 animate-in fade-in zoom-in duration-200">
                   {moods.map((m) => (
@@ -224,7 +251,7 @@ async function saveDay(
                         setShowMoodPicker(false);
                         saveDay(tasks, morning, reflection, m.emoji);
                       }}
-                      className="w-11 h-11 hover:bg-slate-50 rounded-full flex items-center justify-center text-xl active:scale-90 transition-transform"
+                      className="w-11 h-11 hover:bg-slate-50 rounded-full flex items-center justify-center text-xl"
                     >
                       {m.emoji}
                     </button>
@@ -232,32 +259,26 @@ async function saveDay(
                 </div>
               )}
             </div>
-            {mood && (
-              <span className={`text-[10px] font-bold uppercase tracking-widest animate-in fade-in slide-in-from-top-1 duration-500 ${theme.text} opacity-60`}>
-                {currentMoodLabel}
-              </span>
-            )}
+            {mood && <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.text} opacity-60`}>{currentMoodLabel}</span>}
           </div>
         </div>
 
-        <div className="space-y-3 mb-10">
+        <div className="space-y-3 mb-6">
           <div className="bg-white/70 backdrop-blur-sm rounded-[32px] p-6 border border-white/50 shadow-sm">
-            <DaySummary tasks={tasks} />
+            <DaySummary tasks={tasks} completedTaskIds={completedTaskIds} visions={visionsMap} />
           </div>
           <div className="flex justify-start px-2">
             <FreeTimeExportButton tasks={tasks} date={selectedDate} />
           </div>
         </div>
 
+        {/* Relocated Morning Intention */}
         <div className="mb-10">
-          <div className="flex items-center gap-2 mb-3 px-2">
-            <div className={`w-1 h-3 rounded-full ${theme.accent}`} />
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">Morning Intention</label>
-          </div>
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-3 block px-2">Morning Intention</label>
           <textarea
             value={morning}
             placeholder="Focus of the day..."
-            onChange={(e) => { setMorning(e.target.value); saveDay(tasks, e.target.value, reflection, mood); }}
+            onChange={(e) => { setMorning(e.target.value); saveDay(tasks, e.target.value, reflection, mood, completedTaskIds); }}
             className="w-full bg-white/40 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-400 resize-none min-h-[90px]"
           />
         </div>
@@ -265,39 +286,42 @@ async function saveDay(
         <div className="space-y-1 relative mb-10">
           {tasks
             .sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start))
-            .map((task) => (
-              <div 
-                key={task.id} 
-                onClick={() => setEditingTask(task)}
-                className="flex items-center gap-4 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group"
-              >
-                <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
-                <div className="flex-1 flex items-center gap-3">
-                  <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${task.completed ? 'bg-slate-200' : theme.accent}`} />
-                  <div>
-                    <h3 className={`text-[17px] font-semibold leading-tight ${task.completed ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                      {task.text}
-                    </h3>
-                    <p className="text-[13px] text-slate-400 font-medium mt-1">
-                      {task.start} — {task.end} 
-                      {/* ENHANCED VISION DISPLAY WITH EMOJI */}
-                      {task.vision_id && visionsMap[task.vision_id] && (
-                        <span className="text-indigo-500 ml-1 inline-flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-full text-[11px] font-bold">
-                          <span>{visionsMap[task.vision_id].emoji || '🔭'}</span>
-                          <span>{visionsMap[task.vision_id].title}</span>
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }}
-                  className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${task.completed ? 'bg-blue-600 border-blue-600' : 'border-slate-200 group-hover:border-slate-300'}`}
+            .map((task) => {
+              const isDone = completedTaskIds.includes(task.id);
+              return (
+                <div 
+                  key={task.id} 
+                  onClick={() => setEditingTask(task)}
+                  className="flex items-center gap-4 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group"
                 >
-                  {task.completed && <Check className="text-white w-4 h-4 stroke-[3]" />}
-                </button>
-              </div>
-            ))}
+                  <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-slate-200' : theme.accent}`} />
+                    <div>
+                      <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                        {task.text}
+                        {task.recurring && <RefreshCw className="w-3.5 h-3.5 opacity-30" />}
+                      </h3>
+                      <p className="text-[13px] text-slate-400 font-medium mt-1">
+                        {task.start} — {task.end} 
+                        {task.vision_id && visionsMap[task.vision_id] && (
+                          <span className="text-indigo-500 ml-1 inline-flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                            <span>{visionsMap[task.vision_id].emoji || '🔭'}</span>
+                            <span>{visionsMap[task.vision_id].title}</span>
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }}
+                    className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-blue-600 border-blue-600' : 'border-slate-200 group-hover:border-slate-300'}`}
+                  >
+                    {isDone && <Check className="text-white w-4 h-4 stroke-[3]" />}
+                  </button>
+                </div>
+              )
+            })}
         </div>
 
         <button 
@@ -309,14 +333,11 @@ async function saveDay(
         </button>
 
         <div className="mt-14 pb-20">
-          <div className="flex items-center gap-2 mb-3 px-2">
-            <div className="w-1 h-3 bg-purple-500 rounded-full" />
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em]">Evening Reflection</label>
-          </div>
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-3 block px-2">Evening Reflection</label>
           <textarea
             value={reflection}
             placeholder="How did you finish your day?"
-            onChange={(e) => { setReflection(e.target.value); saveDay(tasks, morning, e.target.value, mood); }}
+            onChange={(e) => { setReflection(e.target.value); saveDay(tasks, morning, e.target.value, mood, completedTaskIds); }}
             className="w-full bg-purple-50/20 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-purple-100 transition-all placeholder:text-slate-400 resize-none min-h-[120px]"
           />
         </div>
@@ -337,7 +358,7 @@ async function saveDay(
           onSave={(task) => {
             const updated = editingTask ? tasks.map((t) => (t.id === task.id ? task : t)) : [...tasks, task]
             setTasks(updated)
-            saveDay(updated, morning, reflection, mood)
+            saveDay(updated, morning, reflection, mood, completedTaskIds)
             setTaskModalHour(null)
             setEditingTask(null)
           }}

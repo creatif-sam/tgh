@@ -69,7 +69,7 @@ export function TaskModal({
 
   return (
     <Modal onClose={onClose}>
-      <div className="space-y-6 pb-2 text-slate-900 dark:text-slate-100">
+      <div className="space-y-6 pb-2 text-slate-900 dark:text-slate-100 max-w-2xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center px-1">
           <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -92,15 +92,15 @@ export function TaskModal({
           />
         </div>
 
-        {/* Time Selector */}
+        {/* Time Selector - Always Row on Desktop, Stacked on Mobile */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">
             <Clock size={14} />
             <span>Time Period</span>
           </div>
           
-          <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-[24px]">
-            <div className="flex-1 bg-white dark:bg-slate-800 rounded-[18px] p-3 shadow-sm border border-slate-100 dark:border-slate-700">
+          <div className="flex flex-col md:flex-row items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-[24px]">
+            <div className="w-full md:flex-1 bg-white dark:bg-slate-800 rounded-[18px] p-3 shadow-sm border border-slate-100 dark:border-slate-700">
               <p className="text-[10px] text-blue-500 dark:text-blue-400 font-bold uppercase mb-1 text-center">Start</p>
               <input 
                 type="time" 
@@ -110,9 +110,9 @@ export function TaskModal({
               />
             </div>
 
-            <ArrowRight className="text-slate-300 dark:text-slate-600 shrink-0" size={20} />
+            <ArrowRight className="text-slate-300 dark:text-slate-600 shrink-0 hidden md:block" size={20} />
 
-            <div className="flex-1 bg-white dark:bg-slate-800 rounded-[18px] p-3 shadow-sm border border-slate-100 dark:border-slate-700">
+            <div className="w-full md:flex-1 bg-white dark:bg-slate-800 rounded-[18px] p-3 shadow-sm border border-slate-100 dark:border-slate-700">
               <p className="text-[10px] text-purple-500 dark:text-purple-400 font-bold uppercase mb-1 text-center">End</p>
               <input 
                 type="time" 
@@ -134,6 +134,9 @@ export function TaskModal({
             hideTitle={true}
           />
 
+          {/* Note: For the 3-input row to work, TaskRecurrence internal 
+            JSX must use: <div className="flex flex-col md:flex-row gap-3">
+          */}
           <TaskRecurrence
             value={recurring}
             onChange={setRecurring}

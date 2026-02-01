@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { motion, AnimatePresence } from 'framer-motion'; // Install: npm install framer-motion
+import { motion, AnimatePresence } from 'framer-motion'; 
 
 export default function Home() {
   const router = useRouter();
