@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Calendar as CalendarIcon, Check, RefreshCw } from 'lucide-react'
+import { Plus, Calendar as CalendarIcon, Check, RefreshCw, Target } from 'lucide-react'
 
 import { TaskModal } from './tasks/TaskModal'
 import TopCalendar from './TopCalendar'
 import DaySummary from './DailySummary'
 import FreeTimeExportButton from './FreeTimeExportButton'
-import MoodPicker, { moodThemes } from './MoodPicker' // Import here
+import MoodPicker, { moodThemes } from './MoodPicker'
 
 export interface PlannerTask {
   id: string
@@ -55,7 +55,7 @@ export default function DailyPlanner() {
     if (untilDate && date > untilDate) return false;
     if (task.recurring.unit === 'day') return true;
     if (task.recurring.unit === 'week') return task.recurring.daysOfWeek.includes(dayOfWeek);
-    if (task.recurring.unit === 'month') return true; 
+    if (task.recurring.unit === 'month') return date.getDate() === new Date(dateKey).getDate(); 
     return false;
   }
 
@@ -178,26 +178,60 @@ export default function DailyPlanner() {
           />
         </div>
 
-        <div className="space-y-1 relative mb-10">
-          {tasks.sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start)).map((task) => {
-            const isDone = completedTaskIds.includes(task.id);
-            return (
-              <div key={task.id} onClick={() => setEditingTask(task)} className="flex items-center gap-4 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group">
-                <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
-                <div className="flex-1 flex items-center gap-3">
-                  <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-slate-200' : theme.accent}`} />
-                  <div>
-                    <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{task.text} {task.recurring && <RefreshCw className="w-3.5 h-3.5 opacity-30" />}</h3>
-                    <p className="text-[13px] text-slate-400 font-medium mt-1">{task.start} — {task.end}</p>
+        {/* TASK LIST WITH INTEGRATED VISION DISPLAY */}
+        <div className="space-y-2 relative mb-10">
+          {tasks
+            .sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start))
+            .map((task) => {
+              const isDone = completedTaskIds.includes(task.id);
+              const vision = task.vision_id ? visionsMap[task.vision_id] : null;
+
+              return (
+                <div 
+                  key={task.id} 
+                  onClick={() => setEditingTask(task)} 
+                  className="flex flex-col gap-1 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
+                    <div className="flex-1 flex items-center gap-3">
+                      <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-slate-200' : theme.accent}`} />
+                      <div className="flex-1">
+                        <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                          {task.text} 
+                          {task.recurring && <RefreshCw className="w-3.5 h-3.5 opacity-30" />}
+                        </h3>
+                        <p className="text-[13px] text-slate-400 font-medium">
+                          {task.start} — {task.end}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }} 
+                      className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-blue-600 border-blue-600' : 'border-slate-200'}`}
+                    >
+                      {isDone && <Check className="text-white w-4 h-4 stroke-[3]" />}
+                    </button>
                   </div>
+
+                  {/* SPECIFIC VISION UNDER THE TASK */}
+                  {vision && (
+                    <div className="ml-16 flex items-center gap-1.5 py-1 px-3 bg-white/40 dark:bg-black/5 rounded-full w-fit animate-in fade-in slide-in-from-left-1 duration-500">
+                      <span className="text-xs">{vision.emoji}</span>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        {vision.title}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }} className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-blue-600 border-blue-600' : 'border-slate-200'}`}>{isDone && <Check className="text-white w-4 h-4 stroke-[3]" />}</button>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
 
-        <button onClick={() => setTaskModalHour(new Date().getHours())} className="w-full bg-slate-900/5 text-slate-500 py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-slate-900/10 transition-colors">
+        <button 
+          onClick={() => setTaskModalHour(new Date().getHours())} 
+          className="w-full bg-slate-900/5 text-slate-500 py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-slate-900/10 transition-colors"
+        >
           Add event on {selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           <Plus className="w-5 h-5 opacity-30" />
         </button>
@@ -213,7 +247,7 @@ export default function DailyPlanner() {
         </div>
       </div>
 
-      <button onClick={() => setTaskModalHour(new Date().getHours())} className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40">
+      <button onClick={() => setTaskModalHour(new Date().getHours())} className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40_rgba(0,0,0,0.12)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40">
         <Plus className="w-9 h-9 text-slate-800" strokeWidth={1.5} />
       </button>
 
