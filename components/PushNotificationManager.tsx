@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Bell, BellOff, Settings, AlertCircle, Loader2, ShieldCheck } from 'lucide-react'
+import { Bell, BellOff, AlertCircle, Loader2, ShieldCheck, Volume2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface NotificationPreferences {
@@ -34,7 +34,7 @@ export default function PushNotificationManager() {
 
   const supabase = createClient()
 
-  // Helper: Convert VAPID key to format browser understands
+  // Helper: Convert VAPID key for browser
   const urlBase64ToUint8Array = (base64String: string) => {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -82,7 +82,7 @@ export default function PushNotificationManager() {
       setIsSubscribed(!!existing)
       await loadPreferences()
     } catch (err) {
-      console.error("Notification Init error:", err)
+      console.error("Init error:", err)
     } finally {
       setLoading(false)
     }
@@ -99,14 +99,18 @@ export default function PushNotificationManager() {
       setPermission(result)
       
       if (result !== 'granted') {
-        toast.error('SamUr needs permission to send reminders.')
+        toast.error('Permission denied. Please enable notifications in browser settings.')
         return
       }
+
+      // 1. Warm up the Audio Engine (Professional Touch)
+      const audio = new Audio('/sounds/notification.mp3')
+      await audio.play().catch(() => console.log("Audio waiting for interaction"))
 
       const registration = await navigator.serviceWorker.ready
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 
-      if (!vapidKey) throw new Error('VAPID Key not found in environment')
+      if (!vapidKey) throw new Error('VAPID Key missing')
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -116,7 +120,7 @@ export default function PushNotificationManager() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Save subscription and initial preferences to Supabase
+      // 2. Save subscription to DB
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id: user.id,
         endpoint: subscription.endpoint,
@@ -126,10 +130,10 @@ export default function PushNotificationManager() {
       if (error) throw error
 
       setIsSubscribed(true)
-      toast.success('PWA Notifications Activated')
+      toast.success('SamUr Connect: Notifications Active 🤍')
     } catch (error) {
       console.error(error)
-      toast.error('Could not activate notifications.')
+      toast.error('Failed to link device.')
     } finally {
       setActionLoading(false)
     }
@@ -150,96 +154,96 @@ export default function PushNotificationManager() {
       }
 
       setIsSubscribed(false)
-      toast.success('Notifications Disabled')
+      toast.success('Notifications Paused')
     } catch (error) {
-      toast.error('Error during unsubscription')
+      toast.error('Error disabling push.')
     } finally {
       setActionLoading(false)
     }
   }
 
   const updatePreference = async (key: keyof NotificationPreferences, value: boolean) => {
-    setPreferences(prev => ({ ...prev, [key]: value }))
+    const updatedPrefs = { ...preferences, [key]: value }
+    setPreferences(updatedPrefs)
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
     const { error } = await supabase.from('notification_preferences').upsert({
       user_id: user.id,
-      [key]: value
+      ...updatedPrefs // Ensures all keys are synced at once
     })
 
     if (error) {
-      toast.error('Failed to sync preference')
-      setPreferences(prev => ({ ...prev, [key]: !value }))
+      toast.error('Sync failed')
+      setPreferences(preferences) // Rollback
     }
   }
 
   if (loading) return (
-    <div className="flex items-center justify-center p-12 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800">
-      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+    <div className="flex items-center justify-center p-12 bg-card rounded-[32px] border">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   )
 
   if (!isSupported) return (
-    <div className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 rounded-3xl flex items-center gap-4">
-      <AlertCircle className="text-amber-600 shrink-0" />
-      <p className="text-sm font-semibold text-amber-800 dark:text-amber-400">Push is not supported on this browser or device.</p>
+    <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-[32px] flex items-center gap-4 text-destructive">
+      <AlertCircle className="shrink-0" />
+      <p className="text-sm font-semibold">Push is not supported on this device/browser.</p>
     </div>
   )
 
   return (
-    <Card className="rounded-[32px] border-none shadow-xl shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 overflow-hidden">
+    <Card className="rounded-[32px] border-none shadow-2xl bg-card overflow-hidden">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-xl font-black tracking-tight">SamUr Connect</CardTitle>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Notification Control</p>
+            <CardTitle className="text-xl font-black">SamUr Connect</CardTitle>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Global Sync</p>
           </div>
-          {permission === 'denied' && (
-            <Badge variant="outline" className="text-red-500 border-red-100 bg-red-50">Blocked</Badge>
+          {isSubscribed ? (
+             <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Connected</Badge>
+          ) : (
+             <Badge variant="outline" className="opacity-50">Disconnected</Badge>
           )}
         </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Toggle Card */}
-        <div className={`p-5 rounded-[24px] border transition-all duration-500 ${isSubscribed ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-100'}`}>
+        <div className={`p-5 rounded-[24px] border transition-all duration-300 ${isSubscribed ? 'bg-primary/5 border-primary/20 shadow-inner' : 'bg-muted/30 border-muted'}`}>
           <div className="flex items-center justify-between mb-2">
-            <Label className="text-base font-bold text-slate-900 dark:text-white">Real-Time Alerts</Label>
-            <ShieldCheck className={isSubscribed ? 'text-blue-600' : 'text-slate-300'} size={20} />
+            <Label className="text-base font-bold">Real-Time Chimes</Label>
+            <ShieldCheck className={isSubscribed ? 'text-primary' : 'text-muted-foreground'} size={20} />
           </div>
-          <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-            Enable to receive instant updates on your planner, visions, and partner messages even when the app is closed.
+          <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+            Unlocks instant chimes and push alerts even when you aren't actively using SamUr.
           </p>
           
           <Button 
             disabled={actionLoading || permission === 'denied'}
             onClick={isSubscribed ? unsubscribe : subscribe}
-            className={`w-full rounded-2xl py-6 font-bold transition-all ${isSubscribed ? 'bg-white text-slate-900 border-slate-200 hover:bg-slate-100' : 'bg-blue-600 text-white shadow-lg shadow-blue-100 hover:bg-blue-700'}`}
+            className={`w-full rounded-2xl py-6 font-bold transition-all ${isSubscribed ? 'bg-background hover:bg-muted' : 'bg-primary text-primary-foreground shadow-lg'}`}
           >
             {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isSubscribed ? <BellOff className="mr-2 h-4 w-4" /> : <Bell className="mr-2 h-4 w-4" />}
-            {isSubscribed ? 'Stop Receiving Notifications' : 'Activate Push Notifications'}
+            {isSubscribed ? 'Pause Notifications' : 'Enable Chimes & Alerts'}
           </Button>
         </div>
 
-        {/* Categories */}
         <div className="space-y-3 px-1">
-          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Settings</h4>
-          <div className="space-y-2">
+          <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-2">Delivery Channels</h4>
+          <div className="space-y-1">
             {Object.entries(preferences).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+              <div key={key} className="flex items-center justify-between p-3 rounded-2xl hover:bg-muted/50 transition-colors">
                 <div className="min-w-0">
-                  <Label className="capitalize text-sm font-bold text-slate-800 dark:text-slate-200">
+                  <Label className="capitalize text-sm font-bold">
                     {key.replace(/_/g, ' ')}
                   </Label>
-                  <p className="text-[11px] text-slate-400 truncate">Receive alerts for {key.replace(/_/g, ' ')} updates</p>
+                  <p className="text-[10px] text-muted-foreground">Alert me for new {key.replace(/_/g, ' ')}</p>
                 </div>
                 <Switch
                   checked={value}
                   disabled={!isSubscribed}
                   onCheckedChange={v => updatePreference(key as keyof NotificationPreferences, v)}
-                  className="data-[state=checked]:bg-blue-600"
                 />
               </div>
             ))}
@@ -247,9 +251,9 @@ export default function PushNotificationManager() {
         </div>
 
         {permission === 'denied' && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl text-red-600 text-[10px] font-bold uppercase tracking-tight">
+          <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-xl text-destructive text-[10px] font-bold uppercase">
             <AlertCircle size={14} />
-            Browser permissions are blocked. Reset them in your site settings.
+            Browser permissions blocked. Please reset in site settings.
           </div>
         )}
       </CardContent>

@@ -40,6 +40,8 @@ export function Topbar() {
     if (!mounted) return
 
     let channel: any
+    // Pre-load the audio for faster response
+    const notificationSound = new Audio('/sounds/notification.mp3')
 
     const setup = async () => {
       // 1. Initial Load
@@ -62,11 +64,16 @@ export function Topbar() {
           },
           payload => {
             const newNotif = payload.new as Notification
-            // Add to the top of the list and increment badge
             setNotifications(prev => [newNotif, ...prev])
             setUnreadCount(prev => prev + 1)
             
-            // Optional: Play a subtle notification sound here
+            // --- PLAY NOTIFICATION SOUND ---
+            notificationSound.play().catch(err => {
+              // Browsers block audio until the first user interaction
+              console.warn("Audio playback prevented by browser policy", err)
+            })
+            
+            // Native Browser Pop-up
             if ('Notification' in window && Notification.permission === 'granted') {
                new Notification(newNotif.title, { body: newNotif.body });
             }
@@ -98,7 +105,6 @@ export function Topbar() {
   }
 
   const markAsRead = async (id: string) => {
-    // Optimistic UI update
     setNotifications(prev =>
       prev.map(n => (n.id === id ? { ...n, read: true } : n))
     )
@@ -124,7 +130,7 @@ export function Topbar() {
 
   const iconFor = (type: string) => {
     switch (type) {
-      case 'comment': return '💬' // Added for professional interactions
+      case 'comment': return '💬'
       case 'message': return '✉️'
       case 'planner_reminder': return '📅'
       case 'goal_deadline': return '🎯'
