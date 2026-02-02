@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { ClientProviders } from "@/components/ClientProviders";
-import { PushInitializer } from "@/components/push/PushInitializer"; // New Component
+import { PushInitializer } from "@/components/push/PushInitializer";
 import { Toaster } from "sonner";
+import { Suspense } from "react"; // Added for safety
 import "./globals.css";
 
 const defaultUrl = process.env.VERCEL_URL
@@ -40,7 +41,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#2563eb", // Updated to SamUr Blue
+  themeColor: "#2563eb",
 };
 
 const geistSans = Geist({
@@ -55,8 +56,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // 1. suppressHydrationWarning is required on <html> for next-themes
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} antialiased`}>
+      <body 
+        className={`${geistSans.className} antialiased`}
+        // 2. suppressHydrationWarning is required on <body> to ignore extension-injected attributes
+        suppressHydrationWarning
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -64,8 +70,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ClientProviders>
-            {/* Initializes Service Worker & Push logic */}
-            <PushInitializer /> 
+            {/* 3. Wrap in Suspense to prevent Push registration from blocking hydration */}
+            <Suspense fallback={null}>
+              <PushInitializer /> 
+            </Suspense>
             {children}
           </ClientProviders>
           <Toaster position="top-center" richColors />
