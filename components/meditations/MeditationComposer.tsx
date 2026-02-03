@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion' // Added for the Glide effect
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,7 +23,6 @@ export default function MeditationComposer({ meditation, onClose, onCreated }: a
   const [application, setApplication] = useState('')
   const [prayer, setPrayer] = useState('')
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private')
-  const [autoPost, setAutoPost] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const supabase = createClient()
@@ -33,78 +33,52 @@ export default function MeditationComposer({ meditation, onClose, onCreated }: a
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-[#7c3aed] underline font-bold cursor-pointer',
+          class: 'text-[#7c3aed] dark:text-[#a78bfa] underline font-semibold cursor-pointer',
         },
       }),
-      Placeholder.configure({ 
-        placeholder: 'What is the Holy Spirit revealing to you?' 
-      }),
+      Placeholder.configure({ placeholder: 'What is the Holy Spirit revealing to you?' }),
     ],
     content: meditation?.lesson || '',
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm focus:outline-none min-h-[140px] p-4 bg-white/50',
+        class: 'prose prose-sm dark:prose-invert focus:outline-none min-h-[160px] md:min-h-[200px] p-4 bg-white/50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 w-full font-poppins',
       },
     },
   })
 
   useEffect(() => {
     if (meditation && editor) {
-      setTitle(meditation.title)
-      setScripture(meditation.scripture)
-      setApplication(meditation.application)
-      setPrayer(meditation.prayer)
-      setVisibility(meditation.visibility)
-      editor.commands.setContent(meditation.lesson)
+      setTitle(meditation.title); setScripture(meditation.scripture);
+      setApplication(meditation.application); setPrayer(meditation.prayer);
+      setVisibility(meditation.visibility); editor.commands.setContent(meditation.lesson);
     }
   }, [meditation, editor])
 
   const setBibleLink = () => {
     const previousUrl = editor?.getAttributes('link').href
     const url = window.prompt('Enter Bible Reference:', previousUrl)
-    if (url === null) return
-    if (url === '') {
-      editor?.chain().focus().extendMarkRange('link').unsetLink().run()
-      return
-    }
-    const finalUrl = url.includes('http') 
-      ? url 
-      : `https://www.biblegateway.com/passage/?search=${encodeURIComponent(url)}&version=NIV`
+    if (!url) return
+    const finalUrl = url.includes('http') ? url : `https://www.biblegateway.com/passage/?search=${encodeURIComponent(url)}&version=NIV`
     editor?.chain().focus().extendMarkRange('link').setLink({ href: finalUrl }).run()
   }
 
   async function saveMeditation() {
     const lessonContent = editor?.getHTML() || ''
-    if (!title || !scripture || !lessonContent) {
-      toast.error("Title, Scripture, and Revelation are required.")
-      return
-    }
+    if (!title || !scripture || !lessonContent) return toast.error("Please fill required fields.")
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return setSaving(false)
     const period = new Date().getHours() < 12 ? 'morning' : 'evening'
 
     try {
-      const payload = { author_id: user.id, title, scripture, lesson: lessonContent, application, prayer, visibility, period }
+      const payload = { author_id: user?.id, title, scripture, lesson: lessonContent, application, prayer, visibility, period }
       const { data, error } = meditation?.id 
         ? await supabase.from('meditations').update(payload).eq('id', meditation.id).select().single()
         : await supabase.from('meditations').insert(payload).select().single()
       if (error) throw error
-      if (autoPost && data) {
-        let partnerId = null
-        if (visibility === 'shared') {
-          const { data: p } = await supabase.from('profiles').select('partner_id').eq('id', user.id).single()
-          partnerId = p?.partner_id
-        }
-        await supabase.from('posts').insert({
-          author_id: user.id, partner_id: partnerId, visibility, meditation_id: data.id,
-          content: `🧘 Meditated on: "${title}"`,
-        })
-      }
+      
       toast.success("Journal synced! 🤍")
-      onCreated?.()
-      onClose()
+      onCreated?.(); onClose()
     } catch (err: any) {
       toast.error(err.message)
     } finally { setSaving(false) }
@@ -113,91 +87,108 @@ export default function MeditationComposer({ meditation, onClose, onCreated }: a
   if (!editor) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:flex md:items-center md:justify-center bg-black/40 backdrop-blur-sm">
-      <Card className="w-full h-full md:h-auto md:max-w-2xl border-none shadow-2xl md:rounded-[40px] rounded-none bg-white flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500">
+    <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/40 dark:bg-black/70 backdrop-blur-sm p-0 md:p-6 font-poppins overflow-hidden">
+      
+      {/* Background Overlay to close on PC */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose} 
+        className="absolute inset-0 -z-10" 
+      />
+
+      {/* THE GLIDING CARD */}
+      <motion.div
+        initial={{ y: "100%", opacity: 0, scale: 0.95 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }} // This is the "Glide" logic
+        className="w-full h-[94vh] md:h-auto md:max-h-[85vh] md:max-w-3xl border-none shadow-2xl md:rounded-[32px] rounded-t-[40px] bg-white dark:bg-[#0f172a] flex flex-col overflow-hidden"
+      >
         
-        {/* Fixed Header */}
+        {/* Header */}
         <div className="bg-[#7c3aed] p-5 md:p-6 text-white flex justify-between items-center shrink-0">
-          <div>
-            <h2 className="text-xl md:text-2xl font-black tracking-tight leading-none">Daily Bread</h2>
-            <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-70 mt-1">
+          <div className="min-w-0">
+            <h2 className="text-xl md:text-2xl font-semibold tracking-tight leading-none uppercase">Daily Bread</h2>
+            <p className="text-[10px] uppercase font-semibold tracking-widest opacity-80 mt-2">
               {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </p>
           </div>
-          <button onClick={onClose} className="bg-white/10 p-2 rounded-full hover:bg-white/20">
+          <button onClick={onClose} className="bg-white/10 p-2.5 rounded-full hover:bg-white/20 transition-all active:scale-90">
             <X size={20} />
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-5 md:p-8 space-y-6 pb-40">
-          <Input 
-            placeholder="Focus of the Revelation..." 
-            value={title} 
-            onChange={(e) => setTitle(e.target.value)}
-            className="rounded-2xl border-slate-100 bg-slate-50/50 h-12 font-bold px-4"
-          />
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Scripture</label>
-            <Textarea 
-              placeholder="e.g., Matthew 6:33" 
-              value={scripture} 
-              onChange={(e) => setScripture(e.target.value)}
-              className="rounded-2xl border-slate-100 bg-slate-50/50 min-h-[60px] px-4 py-3 italic text-sm"
-            />
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-6 md:space-y-8 pb-32">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
+            <div className="space-y-2">
+               <label className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Focus</label>
+               <Input placeholder="Title..." value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 h-12 font-semibold text-slate-900 dark:text-white" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Scripture</label>
+              <Input placeholder="e.g. Matthew 6:33" value={scripture} onChange={(e) => setScripture(e.target.value)} className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 h-12 text-slate-900 dark:text-white" />
+            </div>
           </div>
 
           <div className="space-y-2">
-             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Revelation</label>
-             <div className="border-2 border-violet-50 rounded-[24px] overflow-hidden bg-white">
-                <div className="flex items-center gap-1 p-2 border-b border-violet-50 bg-violet-50/20 sticky top-0 z-10">
-                  <RichButton icon={<Bold size={16}/>} onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} />
-                  <RichButton icon={<Italic size={16}/>} onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} />
-                  <RichButton icon={<ListOrdered size={16}/>} onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} />
-                  <div className="w-[1px] h-4 bg-slate-200 mx-1" />
-                  <RichButton icon={<BookOpen size={16}/>} onClick={setBibleLink} active={editor.isActive('link')} />
+             <label className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Revelation</label>
+             <div className="border-2 border-violet-50 dark:border-slate-800 rounded-[28px] overflow-hidden bg-white dark:bg-slate-900">
+                <div className="flex items-center gap-1 p-3 border-b border-violet-50 dark:border-slate-800 bg-violet-50/20 dark:bg-slate-800/50 sticky top-0 z-10">
+                  <RichButton icon={<Bold size={18}/>} onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} />
+                  <RichButton icon={<Italic size={18}/>} onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} />
+                  <RichButton icon={<ListOrdered size={18}/>} onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} />
+                  <div className="w-[1px] h-5 bg-slate-200 dark:bg-slate-700 mx-2" />
+                  <RichButton icon={<BookOpen size={18}/>} onClick={setBibleLink} active={editor.isActive('link')} />
                 </div>
                 <EditorContent editor={editor} />
              </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <Textarea placeholder="Application" value={application} onChange={(e) => setApplication(e.target.value)} className="rounded-2xl border-slate-100 bg-slate-50/50 min-h-[80px]" />
-            <Textarea placeholder="Prayer" value={prayer} onChange={(e) => setPrayer(e.target.value)} className="rounded-2xl border-slate-100 bg-slate-50/50 min-h-[80px]" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Application</label>
+              <Textarea placeholder="Walk this out..." value={application} onChange={(e) => setApplication(e.target.value)} className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white min-h-[110px]" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Prayer</label>
+              <Textarea placeholder="Seal in prayer..." value={prayer} onChange={(e) => setPrayer(e.target.value)} className="rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white min-h-[110px]" />
+            </div>
           </div>
         </div>
 
-        {/* Footer - Optimization: Removed overflow-hidden from footer container */}
-        <div className="bg-white p-5 md:p-6 border-t border-slate-100 flex items-center justify-between gap-4 shrink-0 pb-safe">
+        {/* Footer */}
+        <div className="bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md p-6 md:p-8 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0 pb-safe">
           <Select value={visibility} onValueChange={(v: any) => setVisibility(v)}>
-            <SelectTrigger className="w-[130px] rounded-xl border-slate-200 font-bold text-xs h-10 bg-white">
+            <SelectTrigger className="w-[130px] rounded-xl border-slate-200 dark:border-slate-700 font-semibold text-xs h-12 bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
               <SelectValue />
             </SelectTrigger>
-            {/* Optimization: Ensure the list is on top of everything */}
-            <SelectContent className="z-[110] rounded-2xl shadow-xl border-slate-100">
-              <SelectItem value="private" className="font-medium">🔒 Private</SelectItem>
-              <SelectItem value="shared" className="font-medium">❤️ Shared</SelectItem>
+            <SelectContent className="z-[110] rounded-2xl shadow-xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <SelectItem value="private">🔒 Private</SelectItem>
+              <SelectItem value="shared">❤️ Shared</SelectItem>
             </SelectContent>
           </Select>
 
           <Button 
             onClick={saveMeditation} 
             disabled={saving}
-            className="flex-1 md:flex-none rounded-full bg-[#7c3aed] px-6 h-12 font-black text-md shadow-lg shadow-violet-200 active:scale-95"
+            className="flex-1 md:flex-none rounded-full bg-[#7c3aed] px-10 h-12 font-semibold text-md shadow-lg shadow-violet-200 dark:shadow-none active:scale-95 transition-all"
           >
-            {saving ? <Loader2 className="animate-spin h-5 w-5"/> : 'Save Meditation'}
+            {saving ? <Loader2 className="animate-spin h-5 w-5"/> : 'Sync Journal'}
           </Button>
         </div>
 
-      </Card>
+      </motion.div>
     </div>
   )
 }
 
 function RichButton({ icon, onClick, active }: any) {
   return (
-    <button type="button" onClick={onClick} className={`p-2 rounded-xl ${active ? 'bg-white text-[#7c3aed] shadow-sm' : 'text-slate-400'}`}>
+    <button type="button" onClick={onClick} className={`p-2.5 rounded-xl transition-all ${active ? 'bg-white dark:bg-slate-700 text-[#7c3aed] dark:text-violet-300 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
       {icon}
     </button>
   )

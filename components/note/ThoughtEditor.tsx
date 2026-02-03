@@ -1,133 +1,150 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronLeft, Save, Trash2, Calendar, Clock, Check } from 'lucide-react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import { 
+  ChevronLeft, Trash2, Calendar, Clock, 
+  Bold, Italic, List, ListOrdered, Heading2 
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
-interface ThoughtEditorProps {
-  page: any
-  onBack: () => void
-  onRefresh: () => Promise<void>
-}
-
-export function ThoughtEditor({ page, onBack, onRefresh }: ThoughtEditorProps) {
+export function ThoughtEditor({ page, onBack, onRefresh }: any) {
   const [title, setTitle] = useState(page.title)
-  const [content, setContent] = useState(page.content || "")
   const [isSaving, setIsSaving] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const supabase = createClient()
 
-  // Auto-save on unmount or simply handle the save-and-exit
-  async function handleSave() {
-    if (isSaving || saveSuccess) return
-    setIsSaving(true)
-    const supabase = createClient()
+  // --- TIPTAP CONFIGURATION ---
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: page.content || '',
+    immediatelyRender: false, 
+    editorProps: {
+      attributes: {
+        class: 'prose dark:prose-invert focus:outline-none max-w-none min-h-[500px] text-[16px] leading-[2.25rem] font-medium text-slate-700 dark:text-slate-300',
+      },
+    },
+    onUpdate: ({ editor }) => {
+      // Trigger save whenever the editor content changes
+      handleAutoSave(title, editor.getHTML())
+    },
+  })
+
+  // --- DEBOUNCED AUTO-SAVE FOR TITLE ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // We check if editor exists and handle title-only changes here
+      if (editor) handleAutoSave(title, editor.getHTML())
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [title, editor]) // REMOVED 'content' reference to fix ReferenceError
+
+  async function handleAutoSave(currentTitle: string, currentContent: string) {
+    // Prevent saving if nothing actually changed from the original DB record
+    if (currentContent === page.content && currentTitle === page.title) return
     
+    setIsSaving(true)
     const { error } = await supabase
       .from('pages')
       .update({ 
-        title, 
-        content,
+        title: currentTitle, 
+        content: currentContent,
         updated_at: new Date().toISOString() 
       })
       .eq('id', page.id)
 
-    if (error) {
-      console.error("Error saving page:", error)
-      setIsSaving(false)
-    } else {
-      setSaveSuccess(true)
-      await onRefresh()
-      setTimeout(() => onBack(), 500)
-    }
+    if (!error) await onRefresh()
+    setIsSaving(false)
   }
 
+  if (!editor) return null
+
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden">
-      {/* MOBILE-OPTIMIZED HEADER */}
-      <header className="flex items-center justify-between px-3 h-14 bg-[#7719aa] text-white shrink-0 shadow-sm">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onBack} 
-          className="text-white hover:bg-white/10 font-bold uppercase text-[11px] tracking-tight"
-        >
+    <div className="fixed inset-0 z-[60] bg-white dark:bg-[#0f172a] flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden font-poppins transition-colors duration-500">
+      
+      {/* MOBILE HEADER - VIOLET THEME */}
+      <header className="flex items-center justify-between px-3 h-14 bg-[#7719aa] dark:bg-[#581c87] text-white shrink-0 shadow-lg">
+        <Button variant="ghost" size="sm" onClick={onBack} className="text-white font-medium uppercase text-[11px] tracking-widest hover:bg-white/10">
           <ChevronLeft className="w-5 h-5 mr-0.5" /> Back
         </Button>
-        
-        <Button 
-          size="sm" 
-          onClick={handleSave}
-          disabled={isSaving || saveSuccess}
-          className={cn(
-            "h-9 px-4 font-black uppercase italic text-[11px] border-none rounded-full transition-all shadow-md",
-            saveSuccess ? "bg-green-500 text-white" : "bg-white text-[#7719aa]"
-          )}
-        >
-          {saveSuccess ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            isSaving ? '...' : 'Done'
-          )}
-        </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
+            {isSaving ? "Syncing..." : "Cloud Synced"}
+          </span>
+          <Button size="sm" onClick={onBack} className="h-8 px-4 bg-white text-[#7719aa] font-bold uppercase text-[10px] rounded-full shadow-sm active:scale-95">
+            Done
+          </Button>
+        </div>
       </header>
 
-      {/* THE CANVAS */}
-      <main className="flex-grow overflow-y-auto relative flex flex-col">
-        {/* Title Area - Reduced padding for Mobile */}
-        <div className="px-5 py-6 space-y-2 border-b border-dashed bg-white">
+      {/* RICH TEXT TOOLBAR */}
+      <div className="flex items-center gap-1 px-4 py-2 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} icon={<Bold size={16}/>} />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} icon={<Italic size={16}/>} />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading')} icon={<Heading2 size={16}/>} />
+        <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} icon={<List size={16}/>} />
+      </div>
+
+      <main className="flex-grow overflow-y-auto bg-white dark:bg-[#0f172a] flex flex-col">
+        {/* TITLE AREA */}
+        <div className="px-6 py-8 space-y-3">
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
-            className="w-full text-3xl font-black uppercase italic tracking-tighter bg-transparent border-none focus:ring-0 p-0 placeholder:text-slate-200 text-[#7719aa]"
+            className="w-full text-2xl font-medium uppercase tracking-tight bg-transparent border-none focus:ring-0 p-0 text-[#7719aa] dark:text-[#a78bfa] placeholder:text-slate-200 dark:placeholder:text-slate-900"
           />
-          
-          <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {new Date(page.created_at).toLocaleDateString()}
-            </span>
-            <span className="opacity-30">|</span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {new Date(page.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+          <div className="flex items-center gap-4 text-[10px] font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+            <span className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {new Date(page.created_at).toLocaleDateString()}</span>
+            <span className="flex items-center gap-1.5"><Clock className="w-3 h-3" /> {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
 
-        {/* RULED PAPER WRITING AREA (No vertical lines) */}
+        {/* RULED PAPER WRITING AREA - OPTIMIZED FOR DARK SCREEN */}
         <div 
-          className="flex-grow px-5 py-4"
+          className="flex-grow px-6 pb-20 cursor-text"
+          onClick={() => editor.commands.focus()}
           style={{
-            backgroundImage: `linear-gradient(#f1f1f1 1px, transparent 1px)`,
-            backgroundSize: '100% 2.25rem', // Aligns with leading-loose
-            backgroundAttachment: 'local'
-          }}
+            backgroundImage: `linear-gradient(to bottom, transparent 35px, var(--ruled-line) 35px, var(--ruled-line) 36px, transparent 36px)`,
+            backgroundSize: '100% 36px',
+            backgroundAttachment: 'local',
+            // @ts-ignore
+            '--ruled-line': 'rgba(100, 116, 139, 0.15)' // Subtle slate lines
+          } as any}
         >
-          <Textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Start writing..."
-            className="w-full min-h-full text-[16px] md:text-base font-medium leading-[2.25rem] border-none focus-visible:ring-0 bg-transparent resize-none p-0 outline-none text-slate-800 placeholder:text-slate-300"
-            style={{ minHeight: 'calc(100vh - 250px)' }}
-          />
+          <EditorContent editor={editor} />
         </div>
       </main>
 
-      {/* MINIMAL MOBILE FOOTER */}
-      <footer className="px-5 py-3 bg-slate-50 border-t flex justify-between items-center shrink-0">
-        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">
-          {isSaving ? "Syncing..." : "Saved to Cloud"}
-        </span>
-        
-        <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-500 h-8 w-8 transition-colors">
-          <Trash2 className="w-4 h-4" />
-        </Button>
+      <footer className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={cn("w-1.5 h-1.5 rounded-full", isSaving ? "bg-amber-500 animate-pulse" : "bg-green-500")} />
+          <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+            {isSaving ? "Saving Meditation" : "Encrypted & Saved"}
+          </span>
+        </div>
+        <Button variant="ghost" size="icon" className="text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={16}/></Button>
       </footer>
     </div>
+  )
+}
+
+function ToolbarButton({ onClick, active, icon }: any) {
+  return (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      onClick={onClick} 
+      className={cn(
+        "h-8 w-8 transition-all rounded-lg",
+        active ? "bg-[#7719aa]/10 text-[#7719aa] dark:bg-[#a78bfa]/20 dark:text-[#a78bfa]" : "text-slate-400 dark:text-slate-600"
+      )}
+    >
+      {icon}
+    </Button>
   )
 }
