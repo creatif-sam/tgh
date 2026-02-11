@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, CloudSun, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CloudSun } from 'lucide-react'
 
 interface WeatherData {
   temp: number
@@ -10,7 +10,7 @@ interface WeatherData {
 
 interface HomeHeaderProps {
   userName?: string | null
-  weather ?: { temp: number; desc: string } | null
+  weather?: { temp: number; desc: string } | null
 }
 
 export default function HomeHeader({ userName }: HomeHeaderProps) {
@@ -26,7 +26,6 @@ export default function HomeHeader({ userName }: HomeHeaderProps) {
         )
         const data = await res.json()
         
-        // Map the next 3 days of forecast
         const forecast = data.daily.time.slice(1, 4).map((time: string, i: number) => ({
           date: new Date(time).toLocaleDateString(undefined, { weekday: 'short' }),
           tempMax: Math.round(data.daily.temperature_2m_max[i + 1]),
@@ -78,12 +77,12 @@ export default function HomeHeader({ userName }: HomeHeaderProps) {
   const isToday = (d: Date) => d.toDateString() === now.toDateString()
 
   return (
-    <div className="space-y-4 w-full relative">
-      {/* Top Greeting and Clickable Weather Pill */}
+    <div className="space-y-4 w-full relative transition-colors duration-300">
+      {/* Top Greeting */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Today</h1>
-          <p className="text-sm text-slate-500 font-medium italic">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Today</h1>
+          <p className="text-sm text-muted-foreground font-medium italic">
             Stay intentional{userName ? `, ${userName}` : ''}
           </p>
         </div>
@@ -92,7 +91,7 @@ export default function HomeHeader({ userName }: HomeHeaderProps) {
           <div className="relative">
             <button 
               onClick={() => setShowForecast(!showForecast)}
-              className="flex items-center gap-3 bg-violet-600 text-white pl-2 pr-5 py-2 rounded-2xl shadow-lg shadow-violet-200 transition-transform active:scale-95 z-30 relative"
+              className="flex items-center gap-3 bg-violet-600 dark:bg-violet-700 text-white pl-2 pr-5 py-2 rounded-2xl shadow-lg shadow-violet-200 dark:shadow-none transition-transform active:scale-95 z-30 relative"
             >
               <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
                 <CloudSun size={20} className="text-white" />
@@ -107,15 +106,15 @@ export default function HomeHeader({ userName }: HomeHeaderProps) {
 
             {/* 3-Day Forecast Overlay */}
             {showForecast && weather.forecast && (
-              <div className="absolute top-full mt-2 right-0 w-48 bg-white border border-slate-100 rounded-2xl shadow-2xl p-4 z-40 animate-in fade-in zoom-in-95 duration-200">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">3-Day Forecast</div>
+              <div className="absolute top-full mt-2 right-0 w-48 bg-popover border border-border rounded-2xl shadow-2xl p-4 z-40 animate-in fade-in zoom-in-95 duration-200">
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">3-Day Forecast</div>
                 <div className="space-y-3">
                   {weather.forecast.map((f, i) => (
                     <div key={i} className="flex justify-between items-center text-sm">
-                      <span className="font-semibold text-slate-600">{f.date}</span>
+                      <span className="font-semibold text-foreground/80">{f.date}</span>
                       <div className="flex gap-2">
-                        <span className="font-bold text-slate-900">{f.tempMax}°</span>
-                        <span className="text-slate-400">{f.tempMin}°</span>
+                        <span className="font-bold text-foreground">{f.tempMax}°</span>
+                        <span className="text-muted-foreground">{f.tempMin}°</span>
                       </div>
                     </div>
                   ))}
@@ -128,30 +127,56 @@ export default function HomeHeader({ userName }: HomeHeaderProps) {
 
       {/* Calendar Strip */}
       <div className="flex items-center justify-between gap-2">
-        <button className="p-2 rounded-xl border border-slate-100 bg-white shadow-sm text-slate-400"><ChevronLeft size={16} /></button>
+        <button className="p-2 rounded-xl border border-border bg-card shadow-sm text-muted-foreground hover:bg-accent transition-colors">
+          <ChevronLeft size={16} />
+        </button>
+        
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          {/* Mobile View */}
           <div className="flex gap-2 sm:hidden">
             {mobileDays.map(day => (
-              <div key={day.toDateString()} className={`min-w-[56px] rounded-2xl px-3 py-2 text-center text-sm transition-all ${isToday(day) ? 'bg-violet-600 text-white shadow-md' : 'bg-white border border-slate-100 text-slate-400'}`}>
+              <div 
+                key={day.toDateString()} 
+                className={`min-w-[56px] rounded-2xl px-3 py-2 text-center text-sm transition-all ${
+                  isToday(day) 
+                    ? 'bg-violet-600 text-white shadow-md' 
+                    : 'bg-card border border-border text-muted-foreground'
+                }`}
+              >
                 <div className="text-[10px] uppercase font-bold opacity-70">{day.toLocaleDateString(undefined, { weekday: 'short' })}</div>
                 <div className="font-bold text-base">{day.getDate()}</div>
               </div>
             ))}
           </div>
+
+          {/* Desktop View */}
           <div className="hidden sm:flex gap-2">
             {desktopDays.map(day => (
-              <div key={day.toDateString()} className={`min-w-[60px] rounded-2xl px-3 py-2 text-center text-sm transition-all ${isToday(day) ? 'bg-violet-600 text-white shadow-md' : 'bg-white border border-slate-100 text-slate-400'}`}>
+              <div 
+                key={day.toDateString()} 
+                className={`min-w-[60px] rounded-2xl px-3 py-2 text-center text-sm transition-all ${
+                  isToday(day) 
+                    ? 'bg-violet-600 text-white shadow-md' 
+                    : 'bg-card border border-border text-muted-foreground'
+                }`}
+              >
                 <div className="text-[10px] uppercase font-bold opacity-70">{day.toLocaleDateString(undefined, { weekday: 'short' })}</div>
                 <div className="font-bold text-base">{day.getDate()}</div>
               </div>
             ))}
           </div>
         </div>
-        <button className="p-2 rounded-xl border border-slate-100 bg-white shadow-sm text-slate-400"><ChevronRight size={16} /></button>
+
+        <button className="p-2 rounded-xl border border-border bg-card shadow-sm text-muted-foreground hover:bg-accent transition-colors">
+          <ChevronRight size={16} />
+        </button>
       </div>
 
       {/* Progress Card */}
-      <div className="rounded-[28px] p-6 bg-gradient-to-br from-violet-600 to-indigo-700 text-white shadow-xl shadow-violet-100 relative overflow-hidden">
+      <div className="rounded-[28px] p-6 bg-gradient-to-br from-violet-600 to-indigo-700 dark:from-violet-700 dark:to-indigo-900 text-white shadow-xl dark:shadow-none relative overflow-hidden">
+        {/* Subtle decorative circle for depth */}
+        <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+        
         <div className="relative z-10 flex items-center justify-between">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">{year} Progress</div>

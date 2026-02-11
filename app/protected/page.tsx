@@ -20,8 +20,7 @@ import {
   Calendar,
   MessageCircle,
   ArrowRight,
-  Sparkles,
-  CloudSun
+  Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -33,7 +32,6 @@ export default function HomePage() {
   const [weather, setWeather] = useState<{ temp: number; desc: string } | null>(null)
 
   const [goals, setGoals] = useState<Goal[]>([])
-  const [posts, setPosts] = useState<(Post & { profiles: Profile })[]>([])
   const [socialFeedPosts, setSocialFeedPosts] = useState<(Post & { profiles: Profile })[]>([])
   const [todayPlanner, setTodayPlanner] = useState<{
     morning?: string
@@ -44,10 +42,8 @@ export default function HomePage() {
 
   useEffect(() => {
     loadHomeData()
-  
   }, [])
 
-  
   async function loadHomeData() {
     const { data: auth } = await supabase.auth.getUser()
     if (!auth.user) return
@@ -55,7 +51,6 @@ export default function HomePage() {
     setCurrentUserId(auth.user.id)
     const todayStr = new Date().toISOString().split('T')[0]
 
-    // 1. Profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name')
@@ -63,7 +58,6 @@ export default function HomePage() {
       .single()
     setUserName(profile?.full_name ?? null)
 
-    // 2. Today's Planner Focus
     const { data: plannerData } = await supabase
       .from('planner_days')
       .select('morning, reflection, tasks, mood')
@@ -72,14 +66,12 @@ export default function HomePage() {
       .maybeSingle()
     setTodayPlanner(plannerData)
 
-    // 3. Goals
     const { data: goalsData } = await supabase
       .from('goals')
       .select('*')
       .or(`owner_id.eq.${auth.user.id},partner_id.eq.${auth.user.id}`)
     setGoals(goalsData ?? [])
 
-    // 4. Social Feed - LIMITED TO 2
     const { data: socialFeed } = await supabase
       .from('posts')
       .select('*, profiles(*)')
@@ -92,15 +84,13 @@ export default function HomePage() {
   const stats = computeDashboardStats(goals)
 
   return (
-    <div className="p-4 pb-24 space-y-6 max-w-3xl mx-auto">
+    // Replaced specific slate bg with theme-aware background
+    <div className="p-4 pb-24 space-y-6 max-w-3xl mx-auto bg-background text-foreground transition-colors duration-300">
       
-      {/* 1. Integrated Header & Weather Pill */}
-     <HomeHeader userName={userName} weather={weather} />
+      <HomeHeader userName={userName} weather={weather} />
 
-      {/* 2. Daily Verse Overlay (Now independent from Modal) */}
       <DailyVerseCard />
 
-      {/* 3. Action and Stats */}
       <DailyActionWord />
       <DashboardStats stats={stats} />
 
@@ -111,13 +101,13 @@ export default function HomePage() {
         totalGoals={goals.length}
       />
 
-      {/* 4. Today Focus */}
-      <Card className="overflow-hidden border-none shadow-md bg-white/80 backdrop-blur-sm rounded-[32px]">
+      {/* 4. Today Focus - Updated for Dark Mode */}
+      <Card className="overflow-hidden border-none shadow-md bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md rounded-[32px]">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-violet-600" />
-              Today's Focus
+              <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <span>Today's Focus</span>
             </div>
             {todayPlanner?.mood && <span className="text-xl">{todayPlanner.mood}</span>}
           </CardTitle>
@@ -127,26 +117,26 @@ export default function HomePage() {
             <>
               {todayPlanner.morning && (
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1">
                     <Sparkles size={10} className="text-amber-500" /> Intention
                   </p>
-                  <p className="text-sm font-semibold text-slate-700 italic border-l-4 border-violet-200 pl-3">
+                  <p className="text-sm font-semibold text-foreground italic border-l-4 border-violet-200 dark:border-violet-900 pl-3">
                     "{todayPlanner.morning}"
                   </p>
                 </div>
               )}
               {Array.isArray(todayPlanner.tasks) && todayPlanner.tasks.length > 0 ? (
-                <div className="pt-2 border-t border-slate-100">
+                <div className="pt-2 border-t border-border/50">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-slate-500">{todayPlanner.tasks.length} Actions Planned</p>
+                    <p className="text-xs font-semibold text-muted-foreground">{todayPlanner.tasks.length} Actions Planned</p>
                     <div className="flex -space-x-1">
                       {todayPlanner.tasks.slice(0, 5).map((t: any, i: number) => (
-                        <div key={i} className={`w-2 h-2 rounded-full border border-white ${t.completed ? 'bg-green-500' : 'bg-slate-300'}`} />
+                        <div key={i} className={`w-2.5 h-2.5 rounded-full border-2 border-background ${t.completed ? 'bg-green-500' : 'bg-muted'}`} />
                       ))}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
-                    Next: <span className="text-slate-900 font-medium">{todayPlanner.tasks.find((t: any) => !t.completed)?.text || 'Done for today! 🎉'}</span>
+                    Next: <span className="text-foreground font-medium">{todayPlanner.tasks.find((t: any) => !t.completed)?.text || 'Done for today! 🎉'}</span>
                   </p>
                 </div>
               ) : (
@@ -154,21 +144,21 @@ export default function HomePage() {
               )}
             </>
           ) : (
-            <Link href="/protected/planner/day" className="block p-4 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-sm text-slate-500 font-bold hover:bg-slate-100 transition-all">
+            <Link href="/protected/planner/day" className="block p-4 text-center bg-muted/50 rounded-2xl border-2 border-dashed border-border text-sm text-muted-foreground font-bold hover:bg-muted transition-all">
               ⚠️ No plan for today. Tap to fix this.
             </Link>
           )}
         </CardContent>
       </Card>
 
-      {/* 5. Community Feed - 2 Posts */}
+      {/* 5. Community Feed */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-2">
-            <MessageCircle className="w-4 h-4 text-violet-600" />
-            <h2 className="font-bold text-slate-900 tracking-tight">Community</h2>
+            <MessageCircle className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+            <h2 className="font-bold text-foreground tracking-tight">Community</h2>
           </div>
-          <Link href="/protected/posts" className="text-xs font-bold text-violet-600">View all</Link>
+          <Link href="/protected/posts" className="text-xs font-bold text-violet-600 dark:text-violet-400">View all</Link>
         </div>
         <div className="space-y-4">
           {socialFeedPosts.length ? (
@@ -176,19 +166,19 @@ export default function HomePage() {
               <PostCard key={post.id} post={post} currentUserId={currentUserId} />
             ))
           ) : (
-            <p className="text-sm text-muted-foreground py-4 text-center">Checking in on the community...</p>
+            <p className="text-sm text-muted-foreground py-4 text-center italic">Checking in on the community...</p>
           )}
         </div>
       </div>
 
       {/* 6. Shared Goals */}
-      <Card className="border-none shadow-sm rounded-[24px]">
+      <Card className="border-none shadow-sm rounded-[24px] bg-card text-card-foreground">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
-            <Target className="w-4 h-4 text-violet-600" />
+            <Target className="w-4 h-4 text-violet-600 dark:text-violet-400" />
             Shared Goals
           </CardTitle>
-          <Link href="/protected/goals" className="text-xs text-violet-600 flex items-center gap-1">
+          <Link href="/protected/goals" className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
             View all <ArrowRight className="w-3 h-3" />
           </Link>
         </CardHeader>
@@ -197,7 +187,9 @@ export default function HomePage() {
             <div key={goal.id} className="space-y-2">
               <div className="flex justify-between items-center">
                 <p className="text-sm font-medium">{goal.title}</p>
-                <Badge variant={goal.status === 'done' ? 'default' : 'secondary'}>{goal.status}</Badge>
+                <Badge variant={goal.status === 'done' ? 'default' : 'secondary'} className="capitalize">
+                  {goal.status}
+                </Badge>
               </div>
               <Progress value={goal.progress} className="h-1.5" />
             </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { Card } from '@/components/ui/card'
-import { Clock, Calendar, Target } from 'lucide-react'
+import { Clock, Calendar, Target, Award } from 'lucide-react'
 import { Goal } from '@/lib/types'
 
 /* =========================
@@ -61,27 +61,31 @@ export default function DashboardStats({
   }
 }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-4 transition-colors duration-300">
       <StatCard
-        icon={<Clock className="w-5 h-5 text-red-600" />}
+        icon={<Clock className="w-4 h-4 text-red-600 dark:text-red-400" />}
+        iconBg="bg-red-50 dark:bg-red-950/30"
         label="Due Today"
         value={stats.todayDue}
       />
 
       <StatCard
-        icon={<Calendar className="w-5 h-5 text-violet-600" />}
+        icon={<Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />}
+        iconBg="bg-violet-50 dark:bg-violet-950/30"
         label="This Week"
         value={stats.weekActive}
       />
 
       <StatCard
-        icon={<Target className="w-5 h-5 text-emerald-600" />}
+        icon={<Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+        iconBg="bg-emerald-50 dark:bg-emerald-950/30"
         label="This Month"
         value={stats.monthActive}
       />
 
       <StatCard
-        icon={<Target className="w-5 h-5 text-blue-600" />}
+        icon={<Award className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+        iconBg="bg-blue-50 dark:bg-blue-950/30"
         label="This Year"
         value={stats.yearActive}
       />
@@ -91,23 +95,27 @@ export default function DashboardStats({
 
 function StatCard({
   icon,
+  iconBg,
   label,
   value,
 }: {
   icon: React.ReactNode
+  iconBg: string
   label: string
   value: number
 }) {
   return (
-    <Card className="p-4 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        {icon}
-        <span className="text-sm font-medium">
+    <Card className="p-4 flex flex-col gap-3 border-none shadow-sm bg-card dark:bg-zinc-900/50 backdrop-blur-sm transition-all hover:scale-[1.02] active:scale-[0.98]">
+      <div className="flex items-center gap-2">
+        <div className={`p-2 rounded-xl ${iconBg} transition-colors`}>
+          {icon}
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
           {label}
         </span>
       </div>
 
-      <div className="text-2xl font-semibold">
+      <div className="text-2xl font-black text-foreground">
         {value}
       </div>
     </Card>

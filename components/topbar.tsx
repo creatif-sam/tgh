@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { NotificationCenter } from '@/components/notifications/NotificationCenter'
 import { NotificationToast } from '@/components/notifications/NotificationToast'
+import { ThemeSwitcher } from '@/components/theme-switcher' // Adjust path as needed
 
 export function Topbar() {
   const [mounted, setMounted] = useState(false)
@@ -88,6 +89,10 @@ export function Topbar() {
             onMarkRead={markAsRead}
             onMarkAllRead={markAllRead}
           />
+          
+          {/* Theme Switcher added here */}
+          <ThemeSwitcher />
+
           <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full">
             <HelpCircle className="w-5 h-5" />
           </Button>
