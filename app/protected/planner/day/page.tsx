@@ -12,11 +12,13 @@ export default function DayPlannerPage(): React.JSX.Element {
   const [mode, setMode] = useState<PlanningMode>('time')
 
   return (
-    <div className="flex flex-col gap-4 px-3 pb-20 max-w-xl mx-auto">
+    // Changed to use 'text-foreground' for automatic theme text switching
+    <div className="flex flex-col gap-4 px-3 pb-20 max-w-xl mx-auto text-foreground">
       <div className="text-lg font-semibold text-center">
         Daily Planning
       </div>
 
+      {/* bg-muted automatically handles light/dark background for the tab track */}
       <div className="flex gap-2 rounded-xl bg-muted p-1 justify-center">
         <TabButton
           active={mode === 'time'}
@@ -32,14 +34,16 @@ export default function DayPlannerPage(): React.JSX.Element {
         />
       </div>
 
-      <div className="rounded-xl border bg-background p-3 flex justify-center">
+      {/* bg-background: Switches between white (light) and your dark hex (dark).
+         border: Switches between light gray and dark gray borders.
+      */}
+      <div className="rounded-xl border bg-background p-3 flex justify-center transition-colors duration-300">
         <div className="w-full">
           {mode === 'time' && <DailyPlanner />}
 
           {mode === 'money' && (
             <div className="text-sm text-muted-foreground text-center py-10">
               {mode === 'money' && <DailyMoneyPlanner />}
-
             </div>
           )}
         </div>
@@ -63,10 +67,10 @@ function TabButton({
     <Button
       onClick={onClick}
       variant="ghost"
-      className={`flex-1 rounded-lg text-sm transition flex items-center justify-center gap-2 ${
+      className={`flex-1 rounded-lg text-sm transition-all flex items-center justify-center gap-2 ${
         active
-          ? 'bg-violet-600 text-white shadow'
-          : 'bg-transparent text-muted-foreground'
+          ? 'bg-violet-600 text-white shadow-md' // Violet stays violet, text stays white for contrast
+          : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground' 
       }`}
     >
       {icon}
