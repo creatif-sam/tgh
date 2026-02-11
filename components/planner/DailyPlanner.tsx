@@ -42,13 +42,23 @@ export default function DailyPlanner() {
   const [visionsMap, setVisionsMap] = useState<Record<string, Vision>>({})
 
   const dateKey = selectedDate.toISOString().split('T')[0]
-  
-  // Adaptive theme: ensuring moodThemes supports dark mode classes
   const theme = moodThemes[mood] || moodThemes['default']
 
+  /**
+   * STANDARD TIME CALCULATION
+   * Corrects for tasks crossing midnight (e.g., 23:00 to 02:00)
+   */
   function parseMinutes(time: string) {
     const [h, m] = time.split(':').map(Number)
     return h * 60 + (m || 0)
+  }
+
+  // Used for sorting and checking relative order
+  function getEffectiveMinutes(start: string, end: string) {
+    const s = parseMinutes(start)
+    let e = parseMinutes(end)
+    if (e < s) e += 1440 // Add 24 hours if it ends the next day
+    return { start: s, end: e }
   }
 
   function shouldShowTask(task: PlannerTask, date: Date) {
@@ -132,8 +142,7 @@ export default function DailyPlanner() {
   }
 
   return (
-    // Replaced min-h-screen theme.bg with theme-aware background logic
-    <div className={`min-h-screen transition-colors duration-1000 ${theme.bg} text-foreground font-sans pb-32`}>
+    <div className={`min-h-screen transition-colors duration-1000 ${theme.bg} text-black font-sans pb-32`}>
       <header className={`sticky top-0 transition-colors duration-1000 z-30 px-6 pt-12 pb-4 ${theme.bg} backdrop-blur-md`}>
         <div className="flex justify-between items-end">
           <div>
@@ -171,8 +180,7 @@ export default function DailyPlanner() {
         />
 
         <div className="space-y-3 mb-6">
-          {/* Replaced bg-white/70 with glassmorphism that supports dark mode */}
-          <div className="bg-card/70 dark:bg-card/40 backdrop-blur-sm rounded-[32px] p-6 border border-border/50 shadow-sm">
+          <div className="bg-white/70 backdrop-blur-sm rounded-[32px] p-6 border border-white/50 shadow-sm">
             <DaySummary tasks={tasks} completedTaskIds={completedTaskIds} visions={visionsMap} />
           </div>
           <div className="flex justify-start px-2">
@@ -180,18 +188,16 @@ export default function DailyPlanner() {
           </div>
         </div>
 
-        {/* Textareas optimized for both modes */}
         <div className="mb-10">
-          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-3 block px-2">Morning Intention</label>
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-3 block px-2">Morning Intention</label>
           <textarea
             value={morning}
             placeholder="Focus of the day..."
             onChange={(e) => { setMorning(e.target.value); saveDay(tasks, e.target.value, reflection, mood, completedTaskIds); }}
-            className="w-full bg-card/40 dark:bg-card/20 border-none rounded-[24px] p-5 text-[16px] text-foreground focus:ring-2 focus:ring-primary/20 transition-all resize-none min-h-[90px]"
+            className="w-full bg-white/40 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-blue-100 transition-all resize-none min-h-[90px]"
           />
         </div>
 
-        {/* Task List */}
         <div className="space-y-2 relative mb-10">
           {tasks
             .sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start))
@@ -203,34 +209,34 @@ export default function DailyPlanner() {
                 <div 
                   key={task.id} 
                   onClick={() => setEditingTask(task)} 
-                  className="flex flex-col gap-1 p-4 rounded-[28px] hover:bg-card/30 active:bg-card/50 transition-all active:scale-[0.98] group"
+                  className="flex flex-col gap-1 p-4 rounded-[28px] active:bg-white/50 transition-all active:scale-[0.98] group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-14 text-sm font-bold text-foreground tabular-nums">{task.start}</div>
+                    <div className="w-14 text-sm font-bold text-slate-900 tabular-nums">{task.start}</div>
                     <div className="flex-1 flex items-center gap-3">
-                      <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-muted' : theme.accent}`} />
+                      <div className={`w-1.5 h-10 rounded-full transition-colors duration-1000 ${isDone ? 'bg-slate-200' : theme.accent}`} />
                       <div className="flex-1">
-                        <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                        <h3 className={`text-[17px] font-semibold flex items-center gap-2 ${isDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                           {task.text} 
                           {task.recurring && <RefreshCw className="w-3.5 h-3.5 opacity-30" />}
                         </h3>
-                        <p className="text-[13px] text-muted-foreground font-medium">
+                        <p className="text-[13px] text-slate-400 font-medium">
                           {task.start} — {task.end}
                         </p>
                       </div>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); toggleComplete(task.id); }} 
-                      className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-primary border-primary' : 'border-muted'}`}
+                      className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${isDone ? 'bg-blue-600 border-blue-600' : 'border-slate-200'}`}
                     >
-                      {isDone && <Check className="text-primary-foreground w-4 h-4 stroke-[3]" />}
+                      {isDone && <Check className="text-white w-4 h-4 stroke-[3]" />}
                     </button>
                   </div>
 
                   {vision && (
-                    <div className="ml-16 flex items-center gap-1.5 py-1 px-3 bg-card/50 dark:bg-white/5 rounded-full w-fit animate-in fade-in slide-in-from-left-1 duration-500">
+                    <div className="ml-16 flex items-center gap-1.5 py-1 px-3 bg-white/40 dark:bg-black/5 rounded-full w-fit animate-in fade-in slide-in-from-left-1 duration-500">
                       <span className="text-xs">{vision.emoji}</span>
-                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                         {vision.title}
                       </span>
                     </div>
@@ -242,29 +248,25 @@ export default function DailyPlanner() {
 
         <button 
           onClick={() => setTaskModalHour(new Date().getHours())} 
-          className="w-full bg-muted/40 text-muted-foreground py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-muted/60 transition-colors"
+          className="w-full bg-slate-900/5 text-slate-500 py-5 px-8 rounded-[28px] text-left text-[15px] font-semibold flex justify-between items-center active:bg-slate-900/10 transition-colors"
         >
           Add event on {selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           <Plus className="w-5 h-5 opacity-30" />
         </button>
 
         <div className="mt-14 pb-20">
-          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-3 block px-2">Evening Reflection</label>
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-3 block px-2">Evening Reflection</label>
           <textarea
             value={reflection}
             placeholder="How did you finish your day?"
             onChange={(e) => { setReflection(e.target.value); saveDay(tasks, morning, e.target.value, mood, completedTaskIds); }}
-            className="w-full bg-card/40 dark:bg-card/20 border-none rounded-[24px] p-5 text-[16px] text-foreground focus:ring-2 focus:ring-primary/20 transition-all resize-none min-h-[120px]"
+            className="w-full bg-purple-50/20 border-none rounded-[24px] p-5 text-[16px] focus:ring-2 focus:ring-purple-100 transition-all resize-none min-h-[120px]"
           />
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <button 
-        onClick={() => setTaskModalHour(new Date().getHours())} 
-        className="fixed bottom-[100px] right-6 w-16 h-16 bg-card dark:bg-zinc-800 shadow-xl border border-border/50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40"
-      >
-        <Plus className="w-9 h-9 text-foreground" strokeWidth={1.5} />
+      <button onClick={() => setTaskModalHour(new Date().getHours())} className="fixed bottom-[100px] right-6 w-16 h-16 bg-white shadow-[0_12px_40_rgba(0,0,0,0.12)] border border-slate-50 rounded-full flex items-center justify-center hover:scale-110 active:scale-90 transition-all z-40">
+        <Plus className="w-9 h-9 text-slate-800" strokeWidth={1.5} />
       </button>
 
       {(taskModalHour !== null || editingTask) && (
