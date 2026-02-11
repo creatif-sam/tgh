@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation' // Added for URL persistence
 import { createClient } from '@/lib/supabase/client'
 import { Post, Profile } from '@/lib/types'
@@ -24,7 +24,7 @@ import { ThoughtBook } from '@/components/note/ThoughtBook'
 
 type PostWithProfile = Post & { profiles: Profile }
 
-export default function PostsPage() {
+function PostsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -230,5 +230,13 @@ export default function PostsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+export default function PostsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <PostsPageContent />
+    </Suspense>
   )
 }
