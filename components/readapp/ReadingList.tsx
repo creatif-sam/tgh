@@ -14,7 +14,8 @@ import {
   Lightbulb,
   Plus,
   Library,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
 
 type ReadingStatus = 'to_read' | 'reading' | 'done' | 'applied'
@@ -36,7 +37,6 @@ export default function ReadingList(): JSX.Element {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // Ensure portal only renders on the client
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
@@ -46,7 +46,6 @@ export default function ReadingList(): JSX.Element {
     void loadReadings()
   }, [])
 
-  // Prevent body scroll when modal is open
   useEffect(() => {
     if (isAddOpen) {
       document.body.style.overflow = 'hidden'
@@ -86,28 +85,28 @@ export default function ReadingList(): JSX.Element {
 
   if (loading) {
     return (
-      <div className="flex h-[80vh] items-center justify-center bg-slate-50">
+      <div className="flex h-[80vh] items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-violet-600 border-t-transparent rounded-full animate-spin" />
-          <p className="animate-pulse text-violet-600 font-medium">Loading Library...</p>
+          <Loader2 className="w-10 h-10 text-violet-600 animate-spin" />
+          <p className="animate-pulse text-violet-600 font-bold uppercase tracking-widest text-xs">Opening Library...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-background text-foreground pb-24 transition-colors duration-300">
       {/* Sticky Header */}
-      <header className="sticky top-0 z-20 flex items-center justify-between bg-white/80 px-4 py-3 backdrop-blur-md border-b border-slate-200">
+      <header className="sticky top-0 z-20 flex items-center justify-between bg-background/80 px-4 py-3 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-2">
-          <div className="bg-violet-600 p-1.5 rounded-lg shadow-sm shadow-violet-200">
+          <div className="bg-violet-600 p-1.5 rounded-lg shadow-lg shadow-violet-500/20">
             <Library className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">ReadApp</h1>
+          <h1 className="text-xl font-black tracking-tighter uppercase italic">ReadApp</h1>
         </div>
         <button 
           onClick={() => setIsAddOpen(true)}
-          className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"
+          className="p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
         >
           <Plus className="w-6 h-6" />
         </button>
@@ -115,29 +114,29 @@ export default function ReadingList(): JSX.Element {
 
       <main className="p-4 space-y-6 max-w-md mx-auto">
         {/* Status Stats */}
-        <section className="flex gap-3 overflow-x-auto pb-2 no-scrollbar -mx-4 px-4">
-          <Stat icon={<BookOpen className="w-4 h-4" />} label="To Read" value={statusStats.toRead} color="bg-blue-50 text-blue-600" />
-          <Stat icon={<BookMarked className="w-4 h-4" />} label="Reading" value={statusStats.reading} color="bg-orange-50 text-orange-600" />
-          <Stat icon={<CheckCircle className="w-4 h-4" />} label="Done" value={statusStats.done} color="bg-green-50 text-green-600" />
-          <Stat icon={<Lightbulb className="w-4 h-4" />} label="Applied" value={statusStats.applied} color="bg-yellow-50 text-yellow-600" />
+        <section className="flex gap-3 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
+          <Stat icon={<BookOpen className="w-4 h-4" />} label="To Read" value={statusStats.toRead} color="text-blue-600 dark:text-blue-400" bg="bg-blue-50 dark:bg-blue-950/30" />
+          <Stat icon={<BookMarked className="w-4 h-4" />} label="Reading" value={statusStats.reading} color="text-orange-600 dark:text-orange-400" bg="bg-orange-50 dark:bg-orange-950/30" />
+          <Stat icon={<CheckCircle className="w-4 h-4" />} label="Done" value={statusStats.done} color="text-green-600 dark:text-green-400" bg="bg-green-50 dark:bg-green-950/30" />
+          <Stat icon={<Lightbulb className="w-4 h-4" />} label="Applied" value={statusStats.applied} color="text-yellow-600 dark:text-yellow-400" bg="bg-yellow-50 dark:bg-yellow-950/30" />
         </section>
 
         {/* Calendar Card */}
-        <section className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100">
+        <section className="rounded-3xl bg-card dark:bg-zinc-900/50 backdrop-blur-sm shadow-sm border border-border">
           <ReadingCalendar readings={readings} />
         </section>
 
         {/* Reading List Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <h2 className="font-bold text-slate-800">Your Books</h2>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">{readings.length} Total</span>
+            <h2 className="font-black text-foreground uppercase tracking-tight">Your Books</h2>
+            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{readings.length} Total</span>
           </div>
           
           <div className="space-y-3">
             {readings.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                <p className="text-sm text-slate-400 font-medium">Your shelf is empty.</p>
+              <div className="text-center py-16 bg-muted/30 rounded-[32px] border-2 border-dashed border-border transition-all">
+                <p className="text-sm text-muted-foreground font-bold italic">Your shelf is empty.</p>
               </div>
             ) : (
               readings.map(reading => (
@@ -153,33 +152,31 @@ export default function ReadingList(): JSX.Element {
       </main>
 
       {/* Floating Action Button */}
-      <div className="fixed bottom-20 right-6 z-30">
+      <div className="fixed bottom-24 right-6 z-30">
         <button 
           onClick={() => setIsAddOpen(true)}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-violet-600 text-white shadow-xl shadow-violet-200 active:scale-90 transition-all hover:bg-violet-700"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-violet-600 text-white shadow-xl shadow-violet-500/40 active:scale-90 transition-all hover:bg-violet-700 hover:rotate-90"
         >
           <Plus className="w-8 h-8" />
         </button>
       </div>
 
-      {/* MODAL PORTAL: This renders at the end of <body> to bypass all layout constraints */}
+      {/* MODAL PORTAL */}
       {mounted && isAddOpen && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end justify-center">
-          {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" 
+            className="absolute inset-0 bg-background/80 backdrop-blur-md animate-in fade-in duration-300" 
             onClick={() => setIsAddOpen(false)} 
           />
           
-          {/* Sheet Content */}
-          <div className="relative bg-white w-full max-w-lg rounded-t-[32px] p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-300 ease-out">
-            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6 cursor-pointer" onClick={() => setIsAddOpen(false)} />
+          <div className="relative bg-card dark:bg-zinc-950 w-full max-w-lg rounded-t-[40px] border-t border-border p-6 pb-12 shadow-2xl animate-in slide-in-from-bottom duration-500 ease-out">
+            <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-6 cursor-pointer" onClick={() => setIsAddOpen(false)} />
             
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900">Add New Book</h3>
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-2xl font-black tracking-tighter uppercase italic">Add New Book</h3>
               <button 
                 onClick={() => setIsAddOpen(false)} 
-                className="p-1 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600"
+                className="p-2 bg-muted rounded-full text-muted-foreground hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -194,14 +191,14 @@ export default function ReadingList(): JSX.Element {
   )
 }
 
-function Stat({ icon, label, value, color }: { icon: JSX.Element, label: string, value: number, color: string }): JSX.Element {
+function Stat({ icon, label, value, color, bg }: { icon: JSX.Element, label: string, value: number, color: string, bg: string }): JSX.Element {
   return (
-    <div className="min-w-[105px] flex-1 rounded-2xl bg-white border border-slate-100 p-3 flex flex-col items-center justify-center shadow-sm">
-      <div className={`p-2 rounded-xl mb-1.5 ${color}`}>
+    <div className="min-w-[105px] flex-1 rounded-2xl bg-card border border-border p-3 flex flex-col items-center justify-center shadow-sm transition-all duration-300">
+      <div className={`p-2 rounded-xl mb-1.5 ${bg} ${color}`}>
         {icon}
       </div>
-      <div className="text-lg font-bold text-slate-900 leading-none">{value}</div>
-      <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mt-1">{label}</div>
+      <div className="text-xl font-black text-foreground leading-none">{value}</div>
+      <div className="text-[9px] uppercase tracking-widest font-black text-muted-foreground mt-1.5">{label}</div>
     </div>
   )
 }

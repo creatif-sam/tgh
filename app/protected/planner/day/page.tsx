@@ -12,12 +12,16 @@ export default function DayPlannerPage(): React.JSX.Element {
   const [mode, setMode] = useState<PlanningMode>('time')
 
   return (
-    <div className="flex flex-col gap-4 px-3 pb-20 max-w-xl mx-auto">
-      <div className="text-lg font-semibold text-center">
+    <div className="flex flex-col gap-6 px-4 pb-24 max-w-xl mx-auto min-h-screen bg-background text-foreground transition-colors duration-300">
+      
+      {/* Header Section */}
+      <div className="text-xl font-black tracking-tight text-center pt-4">
         Daily Planning
+        <div className="h-1 w-8 bg-violet-600 mx-auto mt-1 rounded-full" />
       </div>
 
-      <div className="flex gap-2 rounded-xl bg-muted p-1 justify-center">
+      {/* Mode Switcher / Tabs */}
+      <div className="flex gap-1 rounded-2xl bg-muted/50 p-1.5 backdrop-blur-sm border border-border/50">
         <TabButton
           active={mode === 'time'}
           onClick={() => setMode('time')}
@@ -32,18 +36,23 @@ export default function DayPlannerPage(): React.JSX.Element {
         />
       </div>
 
-      <div className="rounded-xl border bg-background p-3 flex justify-center">
+      {/* Content Area */}
+      <div className="rounded-[28px] border border-border/40 bg-card dark:bg-zinc-900/40 backdrop-blur-sm p-4 shadow-sm transition-all">
         <div className="w-full">
           {mode === 'time' && <DailyPlanner />}
 
           {mode === 'money' && (
-            <div className="text-sm text-muted-foreground text-center py-10">
-              {mode === 'money' && <DailyMoneyPlanner />}
-
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <DailyMoneyPlanner />
             </div>
           )}
         </div>
       </div>
+      
+      {/* Visual Cue for PWA Navigation */}
+      <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest opacity-50">
+        Switch modes to organize your day
+      </p>
     </div>
   )
 }
@@ -63,13 +72,13 @@ function TabButton({
     <Button
       onClick={onClick}
       variant="ghost"
-      className={`flex-1 rounded-lg text-sm transition flex items-center justify-center gap-2 ${
+      className={`flex-1 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 py-6 ${
         active
-          ? 'bg-violet-600 text-white shadow'
-          : 'bg-transparent text-muted-foreground'
+          ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20 dark:shadow-none'
+          : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
       }`}
     >
-      {icon}
+      <span className={`${active ? 'animate-bounce-short' : ''}`}>{icon}</span>
       <span>{label}</span>
     </Button>
   )

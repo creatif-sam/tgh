@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Loader2, BookPlus } from 'lucide-react'
 
 type ReadingCategory =
   | 'faith'
@@ -31,25 +32,19 @@ export default function AddReading({ onCreated }: Props): JSX.Element {
   const [author, setAuthor] = useState('')
   const [source, setSource] = useState('')
   const [totalPages, setTotalPages] = useState('')
-  const [visibility, setVisibility] =
-    useState<'private' | 'shared'>('private')
-  const [category, setCategory] =
-    useState<ReadingCategory>('self_development')
+  const [visibility, setVisibility] = useState<'private' | 'shared'>('private')
+  const [category, setCategory] = useState<ReadingCategory>('self_development')
   const [loading, setLoading] = useState(false)
 
   const createReading = async (): Promise<void> => {
     if (!title.trim()) return
-
     const pages = Number(totalPages)
     if (!pages || pages <= 0) return
 
     setLoading(true)
     const supabase = createClient()
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (!user || authError) {
       setLoading(false)
@@ -68,92 +63,120 @@ export default function AddReading({ onCreated }: Props): JSX.Element {
       pages_remaining: pages,
     })
 
-    if (error) {
-      console.error(error)
-      setLoading(false)
-      return
+    if (!error) {
+      setTitle('')
+      setAuthor('')
+      setSource('')
+      setTotalPages('')
+      setVisibility('private')
+      setCategory('self_development')
+      onCreated()
     }
-
-    setTitle('')
-    setAuthor('')
-    setSource('')
-    setTotalPages('')
-    setVisibility('private')
-    setCategory('self_development')
     setLoading(false)
-    onCreated()
   }
 
   return (
-    <div className="rounded-xl border p-4 space-y-3">
-      <Input
-        placeholder="Book or article title"
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-      />
+    <div className="space-y-4 bg-transparent transition-colors duration-300">
+      <div className="grid gap-4">
+        {/* Main Title Input */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+            Book Information
+          </label>
+          <Input
+            placeholder="Book or article title"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className="rounded-xl bg-muted/50 border-none focus-visible:ring-violet-500 h-12"
+          />
+        </div>
 
-      <Input
-        placeholder="Author optional"
-        value={author}
-        onChange={e => setAuthor(e.target.value)}
-      />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            placeholder="Author (optional)"
+            value={author}
+            onChange={e => setAuthor(e.target.value)}
+            className="rounded-xl bg-muted/50 border-none focus-visible:ring-violet-500 h-12"
+          />
+          <Input
+            type="number"
+            min="1"
+            placeholder="Total pages"
+            value={totalPages}
+            onChange={e => setTotalPages(e.target.value)}
+            className="rounded-xl bg-muted/50 border-none focus-visible:ring-violet-500 h-12"
+          />
+        </div>
 
-      <Input
-        placeholder="Source book article Bible etc"
-        value={source}
-        onChange={e => setSource(e.target.value)}
-      />
+        <Input
+          placeholder="Source (e.g. Kindle, Bible, Library)"
+          value={source}
+          onChange={e => setSource(e.target.value)}
+          className="rounded-xl bg-muted/50 border-none focus-visible:ring-violet-500 h-12"
+        />
 
-      <Input
-        type="number"
-        min="1"
-        placeholder="Total pages"
-        value={totalPages}
-        onChange={e => setTotalPages(e.target.value)}
-      />
+        {/* Selection Row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+              Category
+            </label>
+            <Select value={category} onValueChange={v => setCategory(v as ReadingCategory)}>
+              <SelectTrigger className="rounded-xl bg-muted/50 border-none h-12 focus:ring-violet-500 text-foreground">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              {/* Added position="popper" and high z-index for the dropdown */}
+              <SelectContent 
+                position="popper" 
+                sideOffset={4} 
+                className="rounded-xl border-border z-[10000] bg-popover text-popover-foreground shadow-xl"
+              >
+                <SelectItem value="faith">Faith</SelectItem>
+                <SelectItem value="self_development">Self Development</SelectItem>
+                <SelectItem value="skill">Skill</SelectItem>
+                <SelectItem value="philosophy">Philosophy</SelectItem>
+                <SelectItem value="psychology">Psychology</SelectItem>
+                <SelectItem value="leadership">Leadership</SelectItem>
+                <SelectItem value="productivity">Productivity</SelectItem>
+                <SelectItem value="miscellaneous">Miscellaneous</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <Select
-        value={category}
-        onValueChange={v =>
-          setCategory(v as ReadingCategory)
-        }
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Category" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="faith">Faith</SelectItem>
-          <SelectItem value="self_development">Self development</SelectItem>
-          <SelectItem value="skill">Skill</SelectItem>
-          <SelectItem value="philosophy">Philosophy</SelectItem>
-          <SelectItem value="psychology">Psychology</SelectItem>
-          <SelectItem value="leadership">Leadership</SelectItem>
-          <SelectItem value="productivity">Productivity</SelectItem>
-          <SelectItem value="miscellaneous">Miscellaneous</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={visibility}
-        onValueChange={v =>
-          setVisibility(v as 'private' | 'shared')
-        }
-      >
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="private">Private</SelectItem>
-          <SelectItem value="shared">Shared</SelectItem>
-        </SelectContent>
-      </Select>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">
+              Privacy
+            </label>
+            <Select value={visibility} onValueChange={v => setVisibility(v as 'private' | 'shared')}>
+              <SelectTrigger className="rounded-xl bg-muted/50 border-none h-12 focus:ring-violet-500 text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent 
+                position="popper" 
+                sideOffset={4} 
+                className="rounded-xl border-border z-[10000] bg-popover text-popover-foreground shadow-xl"
+              >
+                <SelectItem value="private">Private</SelectItem>
+                <SelectItem value="shared">Shared</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       <Button
-        size="sm"
+        className="w-full rounded-2xl h-14 bg-violet-600 hover:bg-violet-500 text-white font-bold text-base shadow-lg shadow-violet-500/20 transition-all active:scale-[0.98] disabled:opacity-50 mt-4"
         disabled={loading || !title.trim() || !totalPages}
         onClick={createReading}
       >
-        Add Reading
+        {loading ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <>
+            <BookPlus className="mr-2 h-5 w-5" />
+            Add to Shelf
+          </>
+        )}
       </Button>
     </div>
   )
